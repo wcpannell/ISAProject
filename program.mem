@@ -1,0 +1,350 @@
+// Hand assembled
+// Format is Instr_code[15:12],Dest[11],Literal[10:0]
+//	STACKPTR equ 0x1FF
+//
+//	WREG equ 0x200  // W Register
+//	CARRY equ 0x201  // Carry Register
+//	ZERO equ 0x202  // Zero Register
+//	INDV equ 0x203  // Indirect Value Register
+//	INDA equ 0x204  // Indirect Pointer Register
+//
+//	W equ 0
+//	w equ 0
+//	M equ 1
+//	m equ 1
+//
+//	ORG 0x0000
+//0000	RESET: gol STARTUP
+C005 // gol STARTUP => gol 0x005 => C,0,0x005
+
+xxxx
+xxxx
+xxxx
+//
+//0004	ORG 0x0004
+//0004	INTERRUPT_VECTOR: rfi  // Interrupts not used
+F000
+//
+//0005	ORG 0x0005
+//0005	STARTUP:
+//	// initialize stack
+//0005		mlw (STACKPTR - 1)  // 0x1FE is top of stack
+21FE
+//0006		mwm STACKPTR
+11FF
+//	//int i = 0;
+//		i equ 0x0000
+//0007		mlw .0
+2000
+//0008		mwm i
+1000
+//
+//	//int j = 20;
+//		j equ 0x0001
+//0009		mlw .20
+2014
+//000A		mwm j
+1001
+//
+//	//int k = 0;
+//		k equ 0x0002
+//000B		mlw .0
+2000
+//000C		mwm k
+1002
+//
+//	//int l[10];
+//		l equ 0x0003
+//		l_end equ (l + 10 - 1) // l_end = 0x000C
+//
+//	//void main(void) {
+//000D		gol MAIN
+C010
+//
+xxxx  //000F
+xxxx  //000F
+//0010	ORG 0x0010
+//0010	MAIN:
+//	//  for (i = 0; i < 10; i++) {
+//	//    l[i] = add(&j, i);
+//	//  }
+//		MAIN_TEMP_0 equ 0x000D
+//		MAIN_TEMP_1 equ 0x000E
+//0010		mm STACKPTR,w // get top of stack
+01FF
+//0011		mwm MAIN_TEMP_0 // save original stack position
+100D
+//0012		mwm INDA  // point the Indirect access at the stack
+1204
+//0013		mlw MAIN_ADD_RETURN // return address
+2020
+//0014		mwm INDV
+1203
+//0015		mlw .1
+2001
+//0016		sub INDA,M // next stack address
+9A04
+//		// load args right to left
+//0017		mm i,w
+0000
+//0018		mwm INDV
+1203
+//0019		mlw .1
+2001
+//001A		sub INDA,M // next stack address
+9A04
+//001B		mlw j // &j
+2001
+//001C		mwm INDV
+1203
+//001D		mm INDA,w
+0204
+//001E		mwm STACKPTR
+11FF
+//001F		gol ADD
+C068
+//
+//0020	MAIN_ADD_RETURN:
+//0020		mm STACKPTR,w
+01FF
+//0021		mwm INDA
+1204
+//0022		mm INDV,w  // load return value
+0203
+//0023		mwm MAIN_TEMP_1  // save return value
+100E
+//0024		mm MAIN_TEMP_0,w // load previous STACKPTR value
+000D
+//0025		mwm STACKPTR  // "pop" function args off stack
+11FF
+//0026		mlw l
+2003
+//0027		mwm INDA
+1204
+//0028		mm i,w
+0000
+//0029		add INDA,m
+8A04
+//002A		mm MAIN_TEMP_1,w
+000D
+//002B		mwm INDV
+1203
+//
+//		// i < 10 ?
+//002C		mlw .1
+2001
+//002D		add i,m
+8800
+//002E		mlw .10
+200A
+//002F		sub i,w
+9000
+//0030		sms CARRY  // skip if carry set
+A201
+//0031		gol MAIN  // i < 10
+C010
+//
+//		// out of for loop
+//	//  i = i - j;
+//0032		mm j,w
+0001
+//0033		sub i,m
+9800
+//
+//	//  if (i >= 10) {
+//	//    j = 0xaa;
+//	//  } else {
+//	//    j = 0x55;
+//	//  }
+//0034		mlw .10
+200A
+//0035		mwm MAIN_TEMP_1  // safe to reuse
+100E
+//0036		rlm i,w
+3000
+//0037		smc CARRY // If carry set, number is negative
+B201
+//		// borrow check doesn't work with mixed signs. Since
+//		// 10 is a positive literal the "compiler" knows that if i is negative,
+//		// i < 10
+//0038		gol MAIN_I_SIGN_NEG
+C041
+//		
+//0039		mm i,w
+0000
+//003A		sub MAIN_TEMP_1,w
+900E
+//003B		mlw 0x55  // assume not
+2055
+//003C		sms CARRY
+A201
+//003D		mlw 0xaa  // i > 10
+20AA
+//003E		smc ZERO
+B202
+//003F		mlw 0xaa // i == 10
+20AA
+//0040		gol MAIN_I_SIGN_END
+C042
+//	
+//	// If i is negative, it's obviously less than 10
+//0041	MAIN_I_SIGN_NEG:
+//0041		mlw 0x55
+2055
+//	
+//0042	MAIN_I_SIGN_END:
+//0042		mwm j
+1001
+//
+//	//  k = 0x55a9;
+//0043		mlw (0x55a9 >> 5) // staying under sign ext.
+22AD // 0x55AA >> 5 = 0x2AD
+//0044		add k,m  // could use mwm, but we know the memory is zeroed, and this assures that carry is cleared in one op
+8802
+//0045		rlm k,m // 1
+3802
+//0046		rlm k,m // 2
+3802
+//0047		rlm k,m // 3
+3802
+//0048		rlm k,m // 4
+3802
+//0049		rlm k,m // 5
+3802
+//004A		mlw 0x9
+2009
+//004B		add k,m
+8802
+//
+//	//  while ((j & k) != 0) {
+//	//    k++;
+//	//  }
+//004C		mm k,w
+0002
+//004D		awm j,w
+5001
+//004E		smc ZERO
+B202
+//004F		gol MAIN_WHILE_LOOP_END // (j & k) == 0
+C056
+//0050	MAIN_WHILE_LOOP:
+//0050		mlw .1
+2001
+//0051		add k,m
+8802
+//0052		mm k,w
+0002
+//0053		awm j,w
+5001
+//0054		sms ZERO
+A202
+//0055		gol MAIN_WHILE_LOOP
+C050
+//
+//0056	MAIN_WHILE_LOOP_END:
+//	//  i = (j | k) == -1;
+//0056		mm k,w
+0002
+//0057		owm j,w
+6001
+//0058		mwm MAIN_TEMP_1
+100E
+//0059		mlw .-1
+27FF
+//005A		sub MAIN_TEMP_1,w
+900E
+//005B		mm ZERO,w  // if temp == -1, zero = 1, else 0
+0202
+//005C		mwm i;
+1000
+//
+//	//  i = j > k;
+//005D		mm j,w
+0001
+//005E		sub k,w  // CARRY clear if Wreg > Mem
+9002
+//005F		mlw 1  // assume true
+2001
+//0060		smc CARRY
+B201
+//0061		mlw 0
+2000
+//0062		mwm i
+1000
+//
+//	//  i = j <= k;
+//0063		mm j,w
+0001
+//0064		sub k,w  // CARRY set if Wreg <= Mem
+9002
+//0065		mm CARRY,w
+0201
+//0066		mwm i
+1000
+//
+//0067	END_OF_PROGRAM:
+//0067		wfi // effectively a halt if there's no interrupt
+E000
+//			// and/or the interrupt handler just does rfi
+//
+//0068	ADD:
+//	// return addr = *(STACKPTR + 2)
+//	// by_ref = *(STACKPTR)
+//	// by_val = *(STACKPTR + 1)
+//	// return value = *(STACKPTR - 1)
+//
+//	//	int add(int *by_ref, int by_val) {
+//		ADD_TEMP_0 equ 0x000F
+//
+//0068		mm STACKPTR,w
+01FF
+//0069		mwm INDA
+1204
+//006A		mlw .1
+2001
+//006B		add INDA,m  // by_val
+8A04
+//006C		mm INDV,w
+0203
+//006D		mwm ADD_TEMP_0 // by_val
+100F
+//006E		mm STACKPTR, w
+01FF
+//006F		mwm INDA,m  // by_ref
+1204
+//0070		mm INDV,w  // by_ref pointer value loaded in W
+0203
+//0071		mwm INDA  // by_ref pointer value loaded into indirect
+1204
+//0072		mm ADD_TEMP_0,w  // by_val
+000F
+//	//	  *by_ref = *by_ref + by_val;
+//0073		add INDV,m
+8A03
+//
+//	//	  return by_val;
+//	//	}
+//0074		mm STACKPTR,w
+01FF
+//0075		mwm INDA,m 
+1204
+//0076		mlw .1
+2001
+//0077		sub INDA,m  // return value
+9A04
+//0078		mm ADD_TEMP_0,w
+000F
+//0079		mwm INDV
+1203
+//007A		mm INDA,w
+0204
+//007B		mwm STACKPTR // update STACKPTR
+11FF
+//007C		mlw .3
+2003
+//007D		add INDA,m  // return adress
+8A04
+//007E		mm INDV,w
+0203
+//007F		gow  // return
+D000

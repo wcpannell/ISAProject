@@ -19,9 +19,13 @@ test_pcsave : test_pcsave.v pcsave.v
 test_program : test_program.v program.v
 	iverilog -Wall -g2012 -o $@ $^
 
+.PHONY: docs
+docs:
+	$(MAKE) -C docs
+
 .PHONY: clean
 clean:
-	rm -f *.vcd ISA test_alu test_decoder test_memory test_mux test_pcsave test_program
+	rm -f *.vcd ISA test_alu test_decoder test_memory test_mux test_pcsave test_program docs.pdf
 
 .PHONY: run
 run: ISA

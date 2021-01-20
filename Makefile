@@ -19,9 +19,11 @@ test_pcsave : test_pcsave.v pcsave.v
 test_program : test_program.v program.v
 	iverilog -Wall -g2012 -o $@ $^
 
+docs.pdf : readme.rst
+	rst2pdf $< $@
+
 .PHONY: docs
-docs:
-	$(MAKE) -C docs
+docs: docs.pdf
 
 .PHONY: clean
 clean:

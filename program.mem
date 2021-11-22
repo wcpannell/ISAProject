@@ -17,9 +17,12 @@
 //0000	RESET: gol STARTUP
 C005 // gol STARTUP => gol 0x005 => C,0,0x005
 
-xxxx
-xxxx
-xxxx
+// All memory that's addressed must be defined
+// can't use xxxx, so just make it a GOTO RESET
+C000  //0001
+C000  //0002
+C000  //0003
+
 //
 //0004	ORG 0x0004
 //0004	INTERRUPT_VECTOR: rfi  // Interrupts not used
@@ -61,8 +64,8 @@ F000
 //000D		gol MAIN
 C010
 //
-xxxx  //000F
-xxxx  //000F
+C000  //000E, "empty", fill with goto RESET
+C000  //000F, "empty", fill with goto RESET
 //0010	ORG 0x0010
 //0010	MAIN:
 //	//  for (i = 0; i < 10; i++) {

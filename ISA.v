@@ -1,6 +1,6 @@
 //`timescale  1ns/100ps
 
-module Simulate_All;
+module ISA(input wire CLOCK_50);
 
 // Registers
 reg InterruptController;  // Represents the output of an unimplemented interrupt controller. always 0.
@@ -25,7 +25,7 @@ wire[10:0] pc_mux_out, skipmux_out, add_out, pc_save_out, pc_in, pc_out;
 wire[15:0] wreg_out, sign_ext_out, alu_out, mem_out, wreg_in;
 wire instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_out;
 
-Multi_Clock multi_clock(instr_clock, mem_clock, reset_bar);
+Multi_Clock multi_clock(CLOCK_50, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
 Program_Memory program_memory(pc_out, instruction, instr_clock);
 Instruction_Decoder instruction_decoder(opcode, InterruptController, control_int_mux, control_pc_mux, control_pc_save, control_w_mux, control_mem_write, control_alu_op);

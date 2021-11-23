@@ -1,7 +1,5 @@
 module Instruction_Decoder(
 	input[4:0] opcode,
-	input interrupt,
-	output reg int_mux,
 	output reg[1:0] pc_mux,
 	output reg pc_save,
 	output reg[1:0] w_mux,
@@ -33,7 +31,6 @@ parameter ALU_NOP = 4'hA;
 
 initial
 begin
-	int_mux = 0;
 	pc_mux = 0;
 	pc_save = 0;
 	w_mux = 0;
@@ -41,9 +38,8 @@ begin
 	alu_op = 0;
 end
 
-always @(opcode, interrupt)
+always @(opcode)
 begin
-	int_mux = 1'b0;  // "hardwired" off until iterrupt controller implemented in future milestone.
 	case (opcode[4:1])
 		// mm
 		4'h0 :

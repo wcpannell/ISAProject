@@ -1,10 +1,14 @@
 //`timescale  1ns/100ps
+`default_nettype none
 
-module ISA(input wire CLOCK_50);
+module ISA(
+  input var logic CLOCK_50,
+  input var logic SW[17:0]
+);
 
 // Registers
-reg InterruptController;  // Represents the output of an unimplemented interrupt controller. always 0.
-reg reset_bar;
+logic reset_bar;
+assign reset_bar = SW[17];
 
 // Busses
 wire [15:0] instruction;  // output of program memory
@@ -28,15 +32,40 @@ wire instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_
 Multi_Clock multi_clock(CLOCK_50, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
 Program_Memory program_memory(pc_out, instruction, instr_clock);
-Instruction_Decoder instruction_decoder(opcode, InterruptController, control_int_mux, control_pc_mux, control_pc_save, control_w_mux, control_mem_write, control_alu_op);
+Instruction_Decoder instruction_decoder(
+  .opcode(opcode),
+  .pc_mux(control_pc_mux),
+  .pc_save(control_pc_save),
+  .w_mux(control_w_mux),
+  .mem_write(control_mem_write),
+  .alu_op(control_alu_op)
+);
 PC_Save pc_save(pc_out, control_pc_save, pc_save_out);
-Mux2_11bit interrupt_mux(pc_mux_out, 11'h004, control_int_mux, pc_in);
+Mux2_11bit interrupt_mux(
+  .in0(pc_mux_out),
+  .in1(11'h004),
+  .control(control_int_mux),
+  .out(pc_in)
+);
 Mux2_11bit skip_mux(11'h1, 11'h2, control_skipmux, skipmux_out);
 Mux4_11bit pc_mux(add_out, wreg_out[10:0], literal, pc_save_out, control_pc_mux, pc_mux_out);
 Adder_10bit pc_add(pc_out, skipmux_out, add_out);
 Sign_Extend sign_extend(literal, sign_ext_out);
 wreg w_reg(wreg_in, wreg_out, mem_clock);
-ram data_memory(literal, alu_out, mem_out, mem_clock, control_mem_write, wreg_out, carry_mem_in, zero_mem_in, carry_mem_out, zero_mem_out, reset_bar);
+ram data_memory(
+  .addr(literal),
+  .in_data(alu_out),
+  .out_data(mem_out),
+  .clk(mem_clock),
+  .write_enable(control_mem_write),
+  .wreg(wreg_out),
+  .carry_in(carry_mem_in),
+  .zero_in(zero_mem_in),
+  .carry_out(carry_mem_out),
+  .zero_out(zero_mem_out),
+  .reset_bar(reset_bar),
+  .interrupt(control_int_mux)  // For now, sole driver of interrupts (from peribus)
+);
 alu alu1(mem_out, wreg_out, carry_mem_out, zero_mem_out, control_alu_op, alu_out, carry_mem_in, zero_mem_in, control_skipmux);
 Mux4_16bit w_mux(alu_out, mem_out, sign_ext_out, wreg_out, control_w_mux, wreg_in);
 
@@ -50,7 +79,6 @@ begin
 	$dumpvars;
 	//$monitor($time, " PC= %H, instruction = %H", ProgramCounter, instruction);
 	$monitor("%d: opcode %b, controls: w_mux %b, mem_write %b, pc_mux %b, pc_save %b, int_mux %b, ALU %b, newPC %h", $time, opcode, control_w_mux, control_mem_write, control_pc_mux, control_pc_save, control_int_mux, control_alu_op, pc_in);
-	InterruptController = 1'b0;
 	reset_bar = 1'b1;
 
 	// test reset

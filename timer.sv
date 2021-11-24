@@ -1,4 +1,8 @@
 // TIMER Peribus peripheral
+//
+// Note: Prescale divider value is (value + 1)
+// e.g. prescale - 1 = 0 => 1, time = period / 1
+// prescale - 1 = 1 => 2, time = period / 2
 
 `default_nettype none
 
@@ -17,7 +21,121 @@ module Timer(
 // Memory Map of Peripheral
 // 0: [16:0] Timer Count
 // 1: [16:0] Timer Period
-// 2: [16:0] Control Register: {13'h0 IRQ enable, Reload, Run}
+// 2: [16:0] Control Register: {Prescale[7:0], 5'h0, IRQ enable, Reload, Run}
 // 3: [16:0] Status Register: {14'h0, IRQ, Running}
+
+localparam CTRL_RUN_OFFSET = 0;
+localparam CTRL_RELOAD_OFFSET = 1;
+localparam CTRL_IRQ_OFFSET = 2;
+localparam CTRL_PRE_OFFSET = 8;
+localparam CTRL_PRE_BITS = 8;
+
+localparam STAT_RUN_OFFSET = 0;
+localparam STAT_IRQ_OFFSET = 1;
+
+logic [16:0] count;
+logic [16:0] period;
+logic [16:0] control;
+logic [16:0] status;
+logic [7:0] pre_count;
+logic count_flag;
+logic prescale_output;
+
+assign irq = control[CTRL_IRQ_OFFSET] && status[STAT_IRQ_OFFSET];
+
+// Reads
+always_ff @(posedge clock or negedge reset_n) begin
+  if (~reset_n) read_data <= 16'h0;  // Clear on reset
+  else if (chipselect && read_en) begin
+    case (addr)
+      2'd0: read_data <= count;
+      2'd1: read_data <= period;
+      2'd2: read_data <= control;
+      default: read_data <= status;  // addr == 3
+    endcase
+  end
+end
+
+// Count Register
+always_ff @(posedge clock or negedge reset_n) begin
+  // reset
+  if (~reset_n) begin
+    count <= 16'h0;
+    count_flag <= 1'b0;
+  end
+
+  // Bus Write
+  else if (chipselect && write_en && (addr == 0)) begin
+    count <= write_data;
+    count_flag <= 1'b0;
+  end
+
+  // Counter running
+  else if (control[CTRL_RUN_OFFSET]) begin
+    // Overflow
+    if (count == 16'd0) begin
+      count_flag <= 1'b1;
+
+      // if auto reload, load new count minus one (or not, if prescaled)
+      count <= (control[CTRL_RELOAD_OFFSET]) ? period - prescale_output : 16'd0;
+    end
+    // Decrement
+    else begin
+      count_flag <= 1'b0;
+      count <= count - prescale_output;
+    end
+  end
+end
+
+// Prescale Counter
+// Counts down, set prescale_output on zero
+always_ff @(posedge clock or negedge reset_n) begin
+  if (~reset_n) begin
+    pre_count <= 0;
+    prescale_output <= 1'b0;
+  end
+  // If running
+  else if (control[CTRL_RUN_OFFSET]) begin
+    if (pre_count == 8'd0) begin  // only load the prescaler while running to keep count correct
+      // reload prescale
+      pre_count <= control[(CTRL_PRE_BITS + CTRL_PRE_OFFSET - 1) : CTRL_PRE_OFFSET];
+      prescale_output <= 1'b1;  // indicate ready to decrement
+    end
+    else begin // normal prescaling
+      pre_count <= pre_count - 1;
+      prescale_output <= 1'b0;
+    end
+  end
+end
+
+// Period Register
+always_ff @(posedge clock or negedge reset_n) begin
+  // reset
+  if (~reset_n) period <= 16'd0;
+  else if (chipselect && write_en && (addr == 1)) period <= write_data;
+end
+
+// Control Register
+always_ff @(posedge clock or negedge reset_n) begin
+  // reset
+  if (~reset_n) control <= 16'd0;
+
+  // Peribus Write
+  else if (chipselect && write_en && (addr == 2)) control <= write_data;
+
+  // Flip Run bit when complete
+  else if (~control[CTRL_RELOAD_OFFSET] && (count == 16'd0)) control[CTRL_RUN_OFFSET] <= 1'b0;
+end
+
+// Status Register
+always_ff @(posedge clock or negedge reset_n) begin
+  // reset
+  if (~reset_n) status <= 16'd0;
+  else if (chipselect && write_en && (addr == 3)) status <= write_data;
+  else begin
+    if (count_flag) status[STAT_IRQ_OFFSET] <= 1'b1;
+  end
+end
+
 
 endmodule

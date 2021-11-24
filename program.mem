@@ -2,6 +2,13 @@
 // Format is Instr_code[15:12],Dest[11],Literal[10:0]
 //	STACKPTR equ 0x1FF
 //
+//      IRQ_SAVE_WREG equ 0x0005
+//      IRQ_SAVE_ZC   equ 0x0006
+//      IRQ_SAVE_INDA equ 0x0007
+//
+//      IRQ_TEMP0 equ 0x0008
+//      IRQ_TEMP1 equ 0x0009
+//
 //	WREG equ 0x200  // W Register
 //	CARRY equ 0x201  // Carry Register
 //	ZERO equ 0x202  // Zero Register
@@ -12,6 +19,27 @@
 //	w equ 0
 //	M equ 1
 //	m equ 1
+//
+//      TMR0_CTL_PRE_MASK equ 0xff00
+//      TMR0_CTL_PRE_OFFSET equ 8
+//      TMR0_CTL_IRQEN_OFFSET equ 2
+//      TMR0_CTL_RELOAD_OFFSET equ 1
+//      TMR0_CTL_RUN_OFFSET equ 0
+//
+//      SW equ 0x300
+//      SW_dir equ 0x301
+//      SW_irq_en equ 0x302
+//      SW_irq equ 0x303
+//
+//      LEDR equ 0x304
+//      LEDR_dir equ 0x305
+//      LEDR_irq_en equ 0x306
+//      LEDR_irq equ 0x307
+//
+//      TIMER_0_count equ 0x308
+//      TIMER_0_period equ 0x308
+//      TIMER_0_control equ 0x308
+//      TIMER_0_status equ 0x308
 //
 //	ORG 0x0000
 //0000	RESET: gol STARTUP
@@ -25,8 +53,8 @@ C000  //0003
 
 //
 //0004	ORG 0x0004
-//0004	INTERRUPT_VECTOR: rfi  // Interrupts not used
-F000
+//0004  INTERRUPT_VECTOR: gol __IRQ
+C000
 //
 //0005	ORG 0x0005
 //0005	STARTUP:
@@ -60,11 +88,22 @@ F000
 //		l equ 0x0003
 //		l_end equ (l + 10 - 1) // l_end = 0x000C
 //
-//	//void main(void) {
-//000D		gol MAIN
-C010
+//      // uint16_t sw_prescale;
+//      sw_prescale equ 0x0004
+//      mlw 0
+//000D
+2000
+//      mwm sw_prescale
+//000E
+1004
 //
-C000  //000E, "empty", fill with goto RESET
+//	//void main(void) {
+//000F		gol MAIN
+C010
+
+/************************************************* <- Got here
+//
+C000  //000E, "empty", fill with goto RESET  // <---------these need to go
 C000  //000F, "empty", fill with goto RESET
 //0010	ORG 0x0010
 //0010	MAIN:

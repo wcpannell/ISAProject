@@ -100,7 +100,7 @@ begin
     // Output Status Bit Values
     carry_out <= carry;
     zero_out <= zero;
-    
+
     // memory read interface
     // case (addr) inside  // QUARTUS LITE DOESNT SUPPORT THIS ARGGGGGGGGGGGGGG
     // Memory Read

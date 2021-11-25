@@ -24,8 +24,13 @@ parameter logic [1:0] MEM_L = 2'd2;
 parameter logic [1:0] INSTR_L = 2'd3;
 
 // Statemachine
-always_ff @(posedge clk or posedge reset_n) begin
-  if (reset_n) begin
+always_ff @(posedge clk or negedge reset_n) begin
+  if (~reset_n) begin
+    // in reset!
+    instr_clock <= 1'b0;
+    mem_clock <= 1'b0;
+    state <= INSTR_H;
+  end else begin
     case (state)
 
       // Instruction clock goes high first (decode instruction)
@@ -63,12 +68,6 @@ always_ff @(posedge clk or posedge reset_n) begin
         state <= INSTR_H;
       end
     endcase
-
-  end else begin
-    // in reset!
-    instr_clock <= 1'b0;
-    mem_clock <= 1'b0;
-    state <= INSTR_H;
   end
 end
 endmodule

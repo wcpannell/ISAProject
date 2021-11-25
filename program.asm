@@ -12,6 +12,7 @@ CARRY equ 0x201  // Carry Register
 ZERO equ 0x202  // Zero Register
 INDV equ 0x203  // Indirect Value Register
 INDA equ 0x204  // Indirect Pointer Register
+IRQ equ 0x205	// Interrupt Control Register
 
 W equ 0
 w equ 0
@@ -23,6 +24,8 @@ TMR0_CTL_PRE_OFFSET equ 8
 TMR0_CTL_IRQEN_OFFSET equ 2
 TMR0_CTL_RELOAD_OFFSET equ 1
 TMR0_CTL_RUN_OFFSET equ 0
+
+IRQ_EN_OFFSET equ 1
 
 SW equ 0x300
 SW_dir equ 0x301
@@ -270,6 +273,11 @@ MAIN_SW_LOOP_END:
     
     mlw -249  // = 703 -> sign ext -> 0xFF03
     mwm TIMER_0_control
+
+//  *IRQ = (1 << IRQ_EN_OFFSET); // Enable Interrupts
+
+	mlw 2
+	mwm IRQ
 
 //  // Show counting blinkenlitez, see __irq
 //  while (1) {

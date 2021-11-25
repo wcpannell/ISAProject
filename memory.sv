@@ -13,10 +13,13 @@ module ram(
   input var logic carry_in,
   input var logic zero_in,
   input var logic reset_bar,
+  input var logic peribus_clock,
   output var logic carry_out,
   output var logic zero_out,
   output var logic [15:0] out_data,
-  output var logic interrupt
+  output var logic interrupt,
+  inout tri [15:0] bidir0,
+  inout tri [15:0] bidir1
 );
 
 // TIPS
@@ -63,8 +66,11 @@ Peribus_Controller peribus_controller(
   .read_data(peri_out),
   .write_enable(peri_write_out),
   .read_enable(peri_read_out),
+  .clock(peribus_clock),
   .reset_n(reset_bar),
-  .irq(peri_irq)
+  .irq(peri_irq),
+  .bidir0(bidir0),
+  .bidir1(bidir1)
 );
 
 

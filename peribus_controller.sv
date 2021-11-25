@@ -9,15 +9,15 @@ module Peribus_Controller #(
   input var logic [7:0] addr,
   input var logic [15:0] write_data,
   output var logic [15:0] read_data,
-  input var logic CLOCK_50,  // bus uses own CLOCK_50
+  input var logic clock,
   input var logic write_enable,  // interface async
   input var logic read_enable,  // interface async
   input var logic reset_n,
   output var logic irq,
 
   // Peripheral output stuff
-  inout tri [17:0] SW,
-  inout tri [17:0] LEDR
+  inout tri [15:0] bidir0,
+  inout tri [15:0] bidir1
 );
 
 // Number of address lines on peripheral bus
@@ -25,7 +25,7 @@ localparam MAX_PERI_REGS_BITS = $clog2(MAX_PERI_REGS);
 
 logic [MAX_PERIPHERALS:0] irq_lines = 0;
 logic [MAX_PERIPHERALS:0] chipselects;
-logic [MAX_PERI_REGS_BITS:0] peri_addr;  // per-peripheral addresses
+//logic [MAX_PERI_REGS_BITS:0] peri_addr;  // per-peripheral addresses
 
 // trigger an IRQ if any of the lines are set
 assign irq = |irq_lines;
@@ -40,12 +40,12 @@ Gpio gpio_0(
   .write_data(write_data),
   .write_en(write_enable),
   .read_en(read_enable),
-  .clock(CLOCK_50),
+  .clock(clock),
   .reset_n(reset_n),
   .chipselect(chipselects[GPIO_0_LINE]),
   .read_data(gpio_0_read_data),
   .irq(irq_lines[GPIO_0_LINE]),
-  .bidir_port(SW[15:0])
+  .bidir_port(bidir0)
 );
 
 // GPIO_1
@@ -58,12 +58,12 @@ Gpio gpio_1(
   .write_data(write_data),
   .write_en(write_enable),
   .read_en(read_enable),
-  .clock(CLOCK_50),
+  .clock(clock),
   .reset_n(reset_n),
   .chipselect(chipselects[GPIO_1_LINE]),
   .read_data(gpio_1_read_data),
   .irq(irq_lines[GPIO_1_LINE]),
-  .bidir_port(LEDR[15:0])
+  .bidir_port(bidir1)
 );
 
 // TIMER_0
@@ -71,16 +71,39 @@ localparam TIMER_0_START = 'h8;
 localparam TIMER_0_WIDTH = 'h4;
 localparam TIMER_0_LINE = 'd2;
 logic[15:0] timer_0_read_data;
+Timer timer_0(
+  .addr(addr[1:0]),
+  .write_data(write_data),
+  .write_en(write_enable),
+  .read_en(read_enable),
+  .clock(clock),
+  .reset_n(reset_n),
+  .chipselect(chipselects[TIMER_0_LINE]),
+  .read_data(timer_0_read_data),
+  .irq(irq_lines[TIMER_0_LINE])
+);
 
 // TIMER_1
 localparam TIMER_1_START = 'hC;
 localparam TIMER_1_WIDTH = 'h4;
 localparam TIMER_1_LINE = 'd3;
 logic[15:0] timer_1_read_data;
+Timer timer_1(
+  .addr(addr[1:0]),
+  .write_data(write_data),
+  .write_en(write_enable),
+  .read_en(read_enable),
+  .clock(clock),
+  .reset_n(reset_n),
+  .chipselect(chipselects[TIMER_1_LINE]),
+  .read_data(timer_1_read_data),
+  .irq(irq_lines[TIMER_1_LINE])
+);
 
 
+// Just used addr, leave this until confirmed working
 // Address used inside each peripheral
-assign peri_addr = addr[MAX_PERI_REGS_BITS:0];
+// assign peri_addr = addr[MAX_PERI_REGS_BITS - 1:0];
 
 // This block uses the requested address to multiplex the chipselect and
 // read_data lines

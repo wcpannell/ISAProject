@@ -7,6 +7,8 @@
 #define TMR0_CTL_RELOAD_OFFSET 1
 #define TMR0_CTL_RUN_OFFSET 0
 
+#define IRQ_EN_OFFSET 1
+
 volatile uint16_t *SW = (uint16_t *)0x300;
 volatile uint16_t *SW_dir = (uint16_t *)0x301;
 volatile uint16_t *SW_irq_en = (uint16_t *)0x302;
@@ -21,6 +23,8 @@ volatile uint16_t *TIMER_0_count = (uint16_t *)0x308;
 volatile uint16_t *TIMER_0_period = (uint16_t *)0x308;
 volatile uint16_t *TIMER_0_control = (uint16_t *)0x308;
 volatile uint16_t *TIMER_0_status = (uint16_t *)0x308;
+
+volatile uint16_t *IRQ = (uint16_t *)0x205;
 
 void __attribute__((interrupt)) __irq(void) {
 
@@ -101,6 +105,7 @@ void main(void) {
   *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) |
                      (1 << TMR0_CTL_IRQEN_OFFSET) |
                      (1 << TMR0_CTL_IRQEN_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+  *IRQ = (1 << IRQ_EN_OFFSET); // Enable Interrupts
 
   // Show counting blinkenlitez, see __irq
   while (1) {

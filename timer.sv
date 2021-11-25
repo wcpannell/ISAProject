@@ -7,7 +7,7 @@
 `default_nettype none
 
 module Timer(
-  input var logic addr,
+  input var logic [1:0] addr,
   input var logic [15:0] write_data,
   input var logic write_en,
   input var logic read_en,

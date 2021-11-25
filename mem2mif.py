@@ -20,10 +20,13 @@ if __name__ == "__main__":
 
     with open("program.mif", "w") as f:
         f.write("WIDTH=16;\n")
-        f.write(f"DEPTH={len(memory)};\n\n")
+        f.write(f"DEPTH=512;\n\n")
         f.write("ADRESS_RADIX=HEX;\n")
         f.write("DATA_RADIX=HEX;\n\n")
         f.write("CONTENT BEGIN\n")
         for key in memory:
             f.write(f"\t{key:03X}  :   {memory[key]:04X};\n")
+
+        # Write all empty with C000 (gol RESET)
+        f.write(f"\t[{len(memory):03X}..1FF]  :   C000;\n")
         f.write("END;")

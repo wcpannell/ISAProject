@@ -3,7 +3,8 @@
 
 module ISA(
   input var logic CLOCK_50,
-  input var logic SW[17:0]
+  inout tri [17:0] SW,
+  inout tri [17:0] LEDR
 );
 
 // Registers
@@ -11,23 +12,23 @@ logic reset_bar;
 assign reset_bar = SW[17];
 
 // Busses
-wire [15:0] instruction;  // output of program memory
-wire[4:0] opcode;  // opcode portion (upper bits) of instruction. split here for convenience.
-wire[10:0] literal;  // literal portion (lower bits) of instruction. split here for convenience.
+logic [15:0] instruction;  // output of program memory
+logic [4:0] opcode;  // opcode portion (upper bits) of instruction. split here for convenience.
+logic [10:0] literal;  // literal portion (lower bits) of instruction. split here for convenience.
 
 // Control Wires
-wire control_int_mux;
-wire[1:0] control_pc_mux;
-wire control_pc_save;
-wire[1:0] control_w_mux;
-wire control_mem_write;
-wire[3:0] control_alu_op;
-wire control_skipmux;
+logic control_int_mux;
+logic [1:0] control_pc_mux;
+logic control_pc_save;
+logic [1:0] control_w_mux;
+logic control_mem_write;
+logic [3:0] control_alu_op;
+logic control_skipmux;
 
 // Hookup-Wires
-wire[10:0] pc_mux_out, skipmux_out, add_out, pc_save_out, pc_in, pc_out;
-wire[15:0] wreg_out, sign_ext_out, alu_out, mem_out, wreg_in;
-wire instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_out;
+logic [10:0] pc_mux_out, skipmux_out, add_out, pc_save_out, pc_in, pc_out;
+logic [15:0] wreg_out, sign_ext_out, alu_out, mem_out, wreg_in;
+logic instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_out;
 
 Multi_Clock multi_clock(CLOCK_50, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
@@ -64,7 +65,10 @@ ram data_memory(
   .carry_out(carry_mem_out),
   .zero_out(zero_mem_out),
   .reset_bar(reset_bar),
-  .interrupt(control_int_mux)  // For now, sole driver of interrupts (from peribus)
+  .interrupt(control_int_mux),  // For now, sole driver of interrupts (from peribus)
+  .bidir0(SW[15:0]),
+  .bidir1(LEDR[15:0]),
+  .peribus_clock(CLOCK_50)
 );
 alu alu1(mem_out, wreg_out, carry_mem_out, zero_mem_out, control_alu_op, alu_out, carry_mem_in, zero_mem_in, control_skipmux);
 Mux4_16bit w_mux(alu_out, mem_out, sign_ext_out, wreg_out, control_w_mux, wreg_in);
@@ -72,25 +76,28 @@ Mux4_16bit w_mux(alu_out, mem_out, sign_ext_out, wreg_out, control_w_mux, wreg_i
 assign opcode = instruction[15:11];  // opcode portion of the instruction
 assign literal = instruction[10:0];  // Literal value portion of the instruction
 
-
+/*
+* for testing
 initial
 begin
-	$dumpfile("ISA.vcd");
-	$dumpvars;
-	//$monitor($time, " PC= %H, instruction = %H", ProgramCounter, instruction);
-	$monitor("%d: opcode %b, controls: w_mux %b, mem_write %b, pc_mux %b, pc_save %b, int_mux %b, ALU %b, newPC %h", $time, opcode, control_w_mux, control_mem_write, control_pc_mux, control_pc_save, control_int_mux, control_alu_op, pc_in);
-	reset_bar = 1'b1;
+  $dumpfile("ISA.vcd");
+  $dumpvars;
+  //$monitor($time, " PC= %H, instruction = %H", ProgramCounter, instruction);
+  $monitor("%d: opcode %b, controls: w_mux %b, mem_write %b, pc_mux %b, pc_save %b, int_mux %b, ALU %b, newPC %h", $time, opcode, control_w_mux, control_mem_write, control_pc_mux, control_pc_save, control_int_mux, control_alu_op, pc_in);
+  reset_bar = 1'b1;
 
-	// test reset
-	//#56 reset_bar = 1'b0;
-	//#10 reset_bar = 1'b1;
+  // test reset
+  //#56 reset_bar = 1'b0;
+  //#10 reset_bar = 1'b1;
 end
 
 //always @(posedge instr_clock)
 always @*
-	$display($time,"PC = %H, instruction = %H", pc_out, instruction);
+  $display($time,"PC = %H, instruction = %H", pc_out, instruction);
 
 always @(opcode)
-	if (opcode == (4'he << 1)) // wfi, aka halt
-		#50 $finish;
+  if (opcode == (4'he << 1)) // wfi, aka halt
+    #50 $finish;
+*/
 endmodule
+

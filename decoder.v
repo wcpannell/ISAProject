@@ -29,14 +29,14 @@ parameter ALU_PCZERO = 4'h8;
 parameter ALU_PCZEROBAR = 4'h9;
 parameter ALU_NOP = 4'hA;
 
-initial
-begin
-	pc_mux = 0;
-	pc_save = 0;
-	w_mux = 0;
-	mem_write = 0;
-	alu_op = 0;
-end
+// initial
+// begin
+// 	pc_mux = 0;
+// 	pc_save = 0;
+// 	w_mux = 0;
+// 	mem_write = 0;
+// 	alu_op = 0;
+// end
 
 always @(opcode)
 begin

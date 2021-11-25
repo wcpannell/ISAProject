@@ -33,10 +33,10 @@ localparam CTRL_PRE_BITS = 8;
 localparam STAT_RUN_OFFSET = 0;
 localparam STAT_IRQ_OFFSET = 1;
 
-logic [16:0] count;
-logic [16:0] period;
-logic [16:0] control;
-logic [16:0] status;
+logic [15:0] count;
+logic [15:0] period;
+logic [15:0] control;
+logic [15:0] status;
 logic [7:0] pre_count;
 logic count_flag;
 logic prescale_output;
@@ -102,7 +102,7 @@ always_ff @(posedge clock or negedge reset_n) begin
       prescale_output <= 1'b1;  // indicate ready to decrement
     end
     else begin // normal prescaling
-      pre_count <= pre_count - 1;
+      pre_count <= pre_count - 'd1;
       prescale_output <= 1'b0;
     end
   end

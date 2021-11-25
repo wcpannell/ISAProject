@@ -6,8 +6,8 @@ module wreg(input[15:0] in_data, output reg[15:0] out_data, input clk);
 
 reg[15:0] wreg;
 
-initial
-	wreg = 16'h0000;
+// initial
+// 	wreg = 16'h0000;
 
 always @(posedge clk)
 	out_data = wreg;

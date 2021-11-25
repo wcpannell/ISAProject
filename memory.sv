@@ -74,20 +74,20 @@ Peribus_Controller peribus_controller(
 );
 
 
-initial
-begin
-  // initialization
-  // carry_out = 1'b0;
-  // carry = 1'b0;
-  // zero_out = 1'b0;
-  // zero = 1'b0;
-  inda_value = 16'h0;
-  //irq_en = 1'b0;
-  // memory[wreg_addr] = 16'h0;
-  // memory[carry_addr] = 1'b0;
-  // memory[zero_addr] = 1'b0;
-  // memory[inda_addr] = 16'h0;
-end
+// initial
+// begin
+//   // initialization
+//   // carry_out = 1'b0;
+//   // carry = 1'b0;
+//   // zero_out = 1'b0;
+//   // zero = 1'b0;
+//   inda_value = 16'h0;
+//   //irq_en = 1'b0;
+//   // memory[wreg_addr] = 16'h0;
+//   // memory[carry_addr] = 1'b0;
+//   // memory[zero_addr] = 1'b0;
+//   // memory[inda_addr] = 16'h0;
+// end
 
 // Read on leading edge
 always_ff @(posedge clk or negedge reset_bar)
@@ -230,7 +230,8 @@ always_ff @(negedge clk or negedge reset_bar) begin
 
       // Indirect Write Address
       else if (addr == inda_addr) begin
-        memory[addr] <= in_data & 16'h1FF;
+        //memory[addr] <= in_data & 16'h1FF;
+        inda_value <= in_data & end_of_mem;  // force value to be within memory
         peri_write <= 1'b0;
       end
 

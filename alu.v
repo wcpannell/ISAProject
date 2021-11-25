@@ -10,13 +10,13 @@ module alu(
 	output reg pc_skip
 );
 
-initial
-begin
-	#0 carry_out = 1'b0;
-	#0 zero_out = 1'b0;
-	pc_skip = 1'b0;
-	result = 16'bz;
-end
+// initial
+// begin
+// 	#0 carry_out = 1'b0;
+// 	#0 zero_out = 1'b0;
+// 	pc_skip = 1'b0;
+// 	result = 16'bz;
+// end
 
 always @(mem, wreg, alu_op, carry_in, zero_in)
 begin
@@ -28,12 +28,14 @@ begin
 
 	case (alu_op)
 		// RotL
-		4'h0 : {carry_out, result} = (mem << 1) + carry_in;
+		// 4'h0 : {carry_out, result} = (mem << 1) + carry_in;
+		4'h0 : {carry_out, result} = {mem, carry_in};
 
 		// RotR
 		4'h1 : begin
-			result = {carry_in, mem} >> 1;
-			carry_out = mem[0]; // has to go after so it doesn't change carry_in in tests
+			// result = {carry_in, mem} >> 1;
+			// carry_out = mem[0]; // has to go after so it doesn't change carry_in in tests
+			{result, carry_out} = {carry_in, mem};
 		end
 
 		// Add

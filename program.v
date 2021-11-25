@@ -4,10 +4,13 @@ module Program_Memory(
 	input clock
 );
 
-reg[15:0] memory[0:511];
+reg[15:0] memory[0:511] /* synthesis ram_init_file = " program.mif" */;
 
-initial
-	$readmemh("program.mem", memory);
+/*
+* quartus chokes on this
+*initial
+*	$readmemh("program.mem", memory);
+*/
 
 always @(posedge clock)
 		data = memory[addr];

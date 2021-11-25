@@ -45,6 +45,8 @@ RESET: gol STARTUP
 ORG 0x0004
 INTERRUPT_VECTOR: gol __IRQ
 
+// I could have put the IRQ function here, but didn't want to renumber everthing in program.mem
+
 ORG 0x0005
 STARTUP:
 // initialize stack
@@ -266,7 +268,7 @@ MAIN_SW_LOOP_END:
 
 // optimized => *TIMER_0_control = 0xFF03
     
-    mlw -249  // = 7F03 -> sign ext -> 0xFF03
+    mlw -249  // = 703 -> sign ext -> 0xFF03
     mwm TIMER_0_control
 
 //  // Show counting blinkenlitez, see __irq
@@ -410,7 +412,7 @@ __IRQ_SW:
     mm TIMER_0_control,w
     mwm IRQ_TEMP0
     mlw 0x0ff
-    awm IRQ_TEMP0
+    awm IRQ_TEMP0,m
 
     mm SW,w
     mwm IRQ_TEMP1
@@ -425,8 +427,7 @@ __IRQ_SW:
     mlw -256  // 0xff00 => 0x700, sign ext => -256
     awm IRQ_TEMP1,w
 
-    owm IRQ_TEMP0,m
-    mm IRQ_TEMP0,w
+    owm IRQ_TEMP0,w
     mwm TIMER_0_control
 
 // }
@@ -436,6 +437,6 @@ __IRQ_RESTORE:
     mm IRQ_SAVE_INDA,w
     mwm INDA  // Restore INDA
     rrm IRQ_SAVE_ZC,m  // rotate carry back to its position
-    mm WREG,w  // restore WREG
+    mm IRQ_SAVE_WREG,w  // restore WREG
     mm IRQ_SAVE_ZC,m  // restore ZERO
     rfi

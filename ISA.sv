@@ -17,39 +17,59 @@ logic [4:0] opcode;  // opcode portion (upper bits) of instruction. split here f
 logic [10:0] literal;  // literal portion (lower bits) of instruction. split here for convenience.
 
 // Control Wires
-logic control_int_mux;
 logic [1:0] control_pc_mux;
-logic control_pc_save;
 logic [1:0] control_w_mux;
 logic control_mem_write;
 logic [3:0] control_alu_op;
 logic control_skipmux;
+logic irq;
+logic [10:0] pc_save;
 
 // Hookup-Wires
 logic [10:0] pc_mux_out, skipmux_out, add_out, pc_save_out, pc_in, pc_out;
 logic [15:0] wreg_out, sign_ext_out, alu_out, mem_out, wreg_in;
 logic instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_out;
 
+
 Multi_Clock multi_clock(CLOCK_50, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
 Program_Memory program_memory(pc_out, instruction, instr_clock);
 Instruction_Decoder instruction_decoder(
   .opcode(opcode),
+  .mem_clock(mem_clock),
+  .reset_bar(reset_bar),
   .pc_mux(control_pc_mux),
-  .pc_save(control_pc_save),
   .w_mux(control_w_mux),
   .mem_write(control_mem_write),
   .alu_op(control_alu_op)
 );
-PC_Save pc_save(pc_out, control_pc_save, pc_save_out);
-Mux2_11bit interrupt_mux(
-  .in0(pc_mux_out),
-  .in1(11'h004),
-  .control(control_int_mux),
-  .out(pc_in)
+
+Interrupt interrupt_controller(
+  .irq(irq),
+  .instr_clock(instr_clock),
+  .reset_n(reset_bar),
+  .pc_mux_control(control_pc_mux),
+  .pc_next(pc_mux_out),
+  .pc_out(pc_in),
+  .pc_save(pc_save)
 );
-Mux2_11bit skip_mux(11'h1, 11'h2, control_skipmux, skipmux_out);
-Mux4_11bit pc_mux(add_out, wreg_out[10:0], literal, pc_save_out, control_pc_mux, pc_mux_out);
+
+Mux2_11bit skipmux(
+  .in0(11'h1),
+  .in1(11'h2),
+  .control(control_skipmux),
+  .out(skipmux_out)
+);
+
+Mux4_11bit pc_mux(
+  .in0(add_out),
+  .in1(wreg_out[10:0]),
+  .in2(literal),
+  .in3(pc_save),
+  .control(control_pc_mux),
+  .out(pc_mux_out)
+);
+
 Adder_10bit pc_add(pc_out, skipmux_out, add_out);
 Sign_Extend sign_extend(literal, sign_ext_out);
 wreg w_reg(wreg_in, wreg_out, mem_clock);
@@ -65,7 +85,7 @@ ram data_memory(
   .carry_out(carry_mem_out),
   .zero_out(zero_mem_out),
   .reset_bar(reset_bar),
-  .interrupt(control_int_mux),  // For now, sole driver of interrupts (from peribus)
+  .interrupt(irq),  // For now, sole driver of interrupts (from peribus)
   .bidir0(SW[15:0]),
   .bidir1(LEDR[15:0]),
   .peribus_clock(CLOCK_50)

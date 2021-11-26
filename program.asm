@@ -38,9 +38,9 @@ LEDR_irq_en equ 0x306
 LEDR_irq equ 0x307
 
 TIMER_0_count equ 0x308
-TIMER_0_period equ 0x308
-TIMER_0_control equ 0x308
-TIMER_0_status equ 0x308
+TIMER_0_period equ 0x309
+TIMER_0_control equ 0x30A
+TIMER_0_status equ 0x30B
 
 ORG 0x0000
 RESET: gol STARTUP
@@ -342,10 +342,13 @@ __IRQ:
 //   // on timer interrupt decrement software prescaler, on zero update the
 //   // count and increment the display
 //   if (*TIMER_0_status != 0) {
-//     *TIMER_0_status = 0; // clear interrupt
 
     sms TIMER_0_status  // goto __IRQ_SW if TIMER_0_status == 0
     gol __IRQ_SW
+
+//     *TIMER_0_status = 0; // clear interrupt
+	mlw 0
+	mwm TIMER_0_status
 
 //     sw_prescale--;
 
@@ -384,7 +387,7 @@ __IRQ:
 __IRQ_SW:
 //   if (*SW_irq != 0) {
 
-    smc SW_irq  // goto __IRQ_RESTORE if SW_irq == 0
+    sms SW_irq  // goto __IRQ_RESTORE if SW_irq == 0
     gol __IRQ_RESTORE
 
 //     *SW_irq = 0; // Clear all, doesn't matter how many changed, we'll update the

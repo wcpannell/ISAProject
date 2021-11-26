@@ -91,16 +91,16 @@ always_ff @(posedge clock or negedge reset_n) begin
   end
 end
 
-
-// port differences arent' working?
-always_comb begin
+always_ff @(posedge clock or negedge reset_n) begin
+// port differences are triggering, but not resetting
+//always_comb begin
   if (~reset_n) begin
     // Reset
-    port_edges = 16'h0;
-    port_input = bidir_port;
+    port_edges <= 16'h0;
+    port_input <= bidir_port;
   end else begin
-    port_edges = port_input ^ bidir_port;  // Grab differences between last port state and current
-    port_input = bidir_port;  // update port_input
+    port_edges <= port_input ^ bidir_port;  // Grab differences between last port state and current
+    port_input <= bidir_port;  // update port_input
   end
 end
 

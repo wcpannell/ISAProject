@@ -41,7 +41,7 @@ logic [7:0] pre_count;
 logic count_flag;
 logic prescale_output;
 
-assign irq = control[CTRL_IRQ_OFFSET] && status[STAT_IRQ_OFFSET];
+assign irq = (control[CTRL_IRQ_OFFSET] && status[STAT_IRQ_OFFSET]) ? 1'b1: 1'b0;
 
 // Reads
 always_ff @(posedge clock or negedge reset_n) begin
@@ -76,8 +76,9 @@ always_ff @(posedge clock or negedge reset_n) begin
     if (count == 16'd0) begin
       count_flag <= 1'b1;
 
-      // if auto reload, load new count minus one (or not, if prescaled)
-      count <= (control[CTRL_RELOAD_OFFSET]) ? period - prescale_output : 16'd0;
+      // if auto reload, load new count minus one (or not, if prescaled).
+      // Wait until IRQ is set (or was already set) before reloading
+      count <= (control[CTRL_RELOAD_OFFSET] && status[STAT_IRQ_OFFSET]) ? period - prescale_output : 16'd0;
     end
     // Decrement
     else begin
@@ -128,6 +129,8 @@ always_ff @(posedge clock or negedge reset_n) begin
 end
 
 // Status Register
+// Per Modelsim, Counter reset MUST wait until IRQ flag is asserted before
+// resetting. Race condition causes flag to be missed.
 always_ff @(posedge clock or negedge reset_n) begin
   // reset
   if (~reset_n) status <= 16'd0;

@@ -190,6 +190,7 @@ always_ff @(negedge clk or negedge reset_bar) begin
     carry <= 1'b0;
     zero <= 1'b0;
     peri_write <= 1'b0;
+    irq_en <= 1'b0;
   end else begin
     // update Status bits values
     carry <= carry_in;

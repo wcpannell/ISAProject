@@ -1,11 +1,14 @@
 module Instruction_Decoder(
 	input[4:0] opcode,
+  input mem_clock,
+  input reset_bar,
 	output reg[1:0] pc_mux,
-	output reg pc_save,
 	output reg[1:0] w_mux,
 	output reg mem_write,
 	output reg[3:0] alu_op
 );
+
+reg interrupt_active;
 
 parameter W_ALU = 2'h0;
 parameter W_MEM = 2'h1;
@@ -32,7 +35,6 @@ parameter ALU_NOP = 4'hA;
 // initial
 // begin
 // 	pc_mux = 0;
-// 	pc_save = 0;
 // 	w_mux = 0;
 // 	mem_write = 0;
 // 	alu_op = 0;
@@ -50,7 +52,6 @@ begin
 				w_mux = W_MEM;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_ZEROT;
 		end
 
@@ -60,7 +61,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b1;
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_NOP;
 		end
 
@@ -70,7 +70,6 @@ begin
 			w_mux = W_LIT;
 			mem_write = 1'b0;
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_NOP;
 		end
 
@@ -83,7 +82,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_ROTL;
 		end
 
@@ -96,7 +94,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_ROTR;
 		end
 
@@ -109,7 +106,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_AND;
 		end
 
@@ -122,7 +118,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_OR;
 		end
 
@@ -135,7 +130,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_XOR;
 		end
 
@@ -148,7 +142,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_ADD;
 		end
 
@@ -161,7 +154,6 @@ begin
 				w_mux = W_ALU;
 			mem_write = opcode[0];
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_SUB;
 		end
 
@@ -171,7 +163,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_PCZERO;
 		end
 
@@ -181,7 +172,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_ADD;
-			pc_save = 1'b0;
 			alu_op = ALU_PCZEROBAR;
 		end
 
@@ -191,7 +181,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_LIT;
-			pc_save = 1'b0;
 			alu_op = ALU_NOP;
 		end
 
@@ -201,7 +190,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_WREG;
-			pc_save = 1'b0;
 			alu_op = ALU_NOP;
 		end
 
@@ -211,7 +199,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_SAVE;
-			pc_save = 1'b1;
 			alu_op = ALU_NOP;
 		end
 
@@ -221,7 +208,6 @@ begin
 			w_mux = W_WREG;
 			mem_write = 1'b0;
 			pc_mux = PC_SAVE;
-			pc_save = 1'b0;
 			alu_op = ALU_NOP;
 		end
 	endcase

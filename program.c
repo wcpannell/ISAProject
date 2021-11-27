@@ -32,11 +32,11 @@ void __attribute__((interrupt)) __irq(void) {
   // count and increment the display
   if (*TIMER_0_status != 0) {
     *TIMER_0_status = 0; // clear interrupt
-    sw_prescale--;
     if (sw_prescale == 0) {
       sw_prescale = (*SW >> 8) & 0xff;
       *LEDR++;
     }
+    sw_prescale--;
   }
   if (*SW_irq != 0) {
     *SW_irq = 0; // Clear all, doesn't matter how many changed, we'll update the

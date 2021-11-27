@@ -350,11 +350,6 @@ __IRQ:
 	mlw 0
 	mwm TIMER_0_status
 
-//     sw_prescale--;
-
-    mlw 1
-    sub sw_prescale,m
-
 //     if (sw_prescale == 0) {
 
     smc sw_prescale  // goto __IRQ_SW if sw_prescale != 0
@@ -382,6 +377,11 @@ __IRQ:
     add LEDR,m
 
 //     }
+//     sw_prescale--;
+
+    mlw 1
+    sub sw_prescale,m
+
 //   }
 
 __IRQ_SW:

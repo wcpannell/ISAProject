@@ -648,35 +648,33 @@ C0B2
 //009F
 130B
 
-//	//     sw_prescale--;
-//
-//	    mlw 1
-//00A0
-2001
-
-//	    sub sw_prescale,m
-//00A1
-9804
-
 //	//     if (sw_prescale == 0) {
 //
 //	    smc sw_prescale  // goto __IRQ_SW if sw_prescale != 0
-//00A2
+//00A0
 B004
 
 //	    gol __IRQ_SW
-//00A3
+//00A1
 C0B2
 
 //	//       sw_prescale = (*SW >> 8) & 0xff;
 //
 //	    mm SW,w
-//00A4
+//00A2
 0300
 
 //	    mwm sw_prescale
-//00A5
+//00A3
 1004
+
+//	    rrm sw_prescale,m
+//00A4
+4804
+
+//	    rrm sw_prescale,m
+//00A5
+4804
 
 //	    rrm sw_prescale,m
 //00A6
@@ -698,24 +696,16 @@ C0B2
 //00AA
 4804
 
-//	    rrm sw_prescale,m
+//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
 //00AB
 4804
 
-//	    rrm sw_prescale,m
-//00AC
-4804
-
-//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
-//00AD
-4804
-
 //	    mlw 0xff
-//00AE
+//00AC
 20FF
 
 //	    awm sw_prescale,m  // which gets masked out, so don't need to clear carry
-//00AF
+//00AD
 5804
 
 //	                       // for logical shift
@@ -723,14 +713,24 @@ C0B2
 //	//       *LEDR++;
 //
 //	    mlw 1
-//00B0
+//00AE
 2001
 
 //	    add LEDR,m
-//00B1
+//00AF
 8B04
 
 //	//     }
+//	//     sw_prescale--;
+//
+//	    mlw 1
+//00B0
+2001
+
+//	    sub sw_prescale,m
+//00B1
+9804
+
 //	//   }
 //
 //	__IRQ_SW:
@@ -829,7 +829,7 @@ C0D4
 //00C4
 20FF
 
-//	    awm IRQ_TEMP0
+//	    awm IRQ_TEMP0,m
 //00C5
 5808
 
@@ -839,43 +839,43 @@ C0D4
 
 //	    mwm IRQ_TEMP1
 //00C7
-100E
+1009
 
 //	    rlm IRQ_TEMP1,m
 //00C8
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00C9
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00CA
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00CB
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00CC
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00CD
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m
 //00CE
-3808
+3809
 
 //	    rlm IRQ_TEMP1,m  // lower bits that are rotated in get masked
 //00CF
-3808
+3809
 
 //	    mlw -256  // 0xff00 => 0x700, sign ext => -256
 //00D0
-3700
+2700
 
 //	    awm IRQ_TEMP1,w
 //00D1

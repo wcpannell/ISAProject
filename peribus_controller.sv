@@ -1,4 +1,10 @@
 // Controller unit for Peribus
+//
+// TODO: Is read_data even required? Could just read off addr bus and move
+// checking address to here?
+//  To verify: move this out of memory, add read/write enable ports to
+//    memroy module and interface this at top level, save rtl output
+//    then move the read/write enable stuff in here and compare.
 `default_nettype none
 
 module Peribus_Controller #(

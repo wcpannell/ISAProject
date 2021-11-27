@@ -8,8 +8,6 @@ module Instruction_Decoder(
 	output reg[3:0] alu_op
 );
 
-reg interrupt_active;
-
 parameter W_ALU = 2'h0;
 parameter W_MEM = 2'h1;
 parameter W_LIT = 2'h2;

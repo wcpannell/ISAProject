@@ -23,7 +23,6 @@ module Gpio(
 
 logic [15:0] port_input;
 logic [15:0] port_output;
-logic [15:0] port_write;
 logic [15:0] port_dir;
 logic [15:0] port_edges;
 logic [15:0] irq_en;
@@ -50,18 +49,29 @@ assign bidir_port[14] = (port_dir[14]) ? port_output[14] : 1'bZ;
 assign bidir_port[15] = (port_dir[15]) ? port_output[15] : 1'bZ;
 
 // Reads
-always_ff @(posedge clock or negedge reset_n) begin
-  if (~reset_n) read_data <= 16'h0;  // Clear on reset
-  else if (chipselect && read_en) begin
+// could be always_comb? this is mux + reset
+//always_ff @(posedge clock or negedge reset_n) begin
+//  if (~reset_n) read_data <= 16'h0;  // Clear on reset
+//  else if (chipselect && read_en) begin
+//    case (addr)
+//      2'd0: read_data <= port_input;
+//      2'd1: read_data <= port_dir;
+//      2'd2: read_data <= irq_en;
+//      default: read_data <= irq_flags;  // addr == 3
+//    endcase
+//  end
+//end
+always_comb begin
+  if (chipselect && read_en) begin
     case (addr)
-      2'd0: read_data <= port_input;
-      2'd1: read_data <= port_dir;
-      2'd2: read_data <= irq_en;
-      default: read_data <= irq_flags;  // addr == 3
+      2'd0: read_data = port_input;
+      2'd1: read_data = port_dir;
+      2'd2: read_data = irq_en;
+      default: read_data = irq_flags;  // addr == 3
     endcase
   end
+  else read_data = 16'hxxxx;
 end
-
 // Write Port State
 always_ff @(posedge clock or negedge reset_n) begin
   if (~reset_n) port_output <= 16'h0;  // clear on reset

@@ -5,7 +5,10 @@
 `default_nettype none
 
 module Program_Counter(
-  input var logic [10:0] in, output var logic [10:0] out, input var logic clock, input var logic reset_bar);
+  input var logic [10:0] in,
+  output var logic [10:0] out,
+  input var logic clock,
+  input var logic reset_bar);
 
 logic hold, clear_hold;
 

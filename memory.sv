@@ -38,7 +38,7 @@ logic [15:0] memory[0:end_of_mem];
 logic carry, zero;
 
 logic [7:0] peri_addr;
-logic peri_read, peri_read_out, peri_write, peri_write_out, peri_irq;
+logic peri_read, peri_read_out, peri_write, peri_write_out, peri_write_inhibit, peri_write_hold, peri_irq;
 logic [15:0] peri_out;
 // logic [15:0] peri_in;  // not required, can share bus w/ memory
 
@@ -51,11 +51,38 @@ logic irq_en;
 assign peri_addr = addr[7:0];
 
 // Disable peri_read outside of read cycle
-assign peri_read_out = (clk) ? peri_read : 1'b0;
+//assign peri_read_out = (clk) ? peri_read : 1'b0;
+assign peri_read_out = (reset_bar) ? 1'b1 : 1'b0;
 
 // Disable peri_write outside of write cycle.
-// write_enable may not be providing any value?
-assign peri_write_out = (~clk && write_enable) ? peri_write : 1'b0;
+
+// Neg edge of mem clock is when writes happen
+// Need to toggle off at negedge of next clock
+//
+// Write needs to go positive as early as the positive edge of the mem_clock and
+// late as the negedge of mem_clock if write_enable and addr is in range
+// Write needs to go negative on the next positive edge of peribus_clock
+// write cannot go positive again until the first condition
+// always_ff @(posedge peribus_clock or posedge clk) begin
+//   if (clk) peri_write_inhibit <= 1'b0;
+//   else if (peribus_clock && peri_write_out) peri_write_inhibit <= 1'b1;
+// end
+// assign peri_write_out = (~peri_write_inhibit) ? peri_write : 1'b0;
+// this below is a reimplementation of that
+
+logic peri_addr_range;
+assign peri_addr_range = ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) ? 1'b1 : 1'b0;
+
+// this can probably be simplified to triggereing off the negedge of clk with
+// a 1-peribus_clock hold
+always_ff @(posedge peribus_clock or posedge clk) begin
+  if (clk) peri_write_inhibit <= 1'b0;
+  else peri_write_inhibit <= 1'b1;
+end
+
+// not inhibited and in peripheral address range? peri_write = write_enable,
+// else no write.
+assign peri_write_out = (~peri_write_inhibit && peri_addr_range) ? write_enable : 1'b0;
 
 // interrupt signal
 assign interrupt = (irq_en) ? peri_irq : 1'b0;
@@ -89,6 +116,17 @@ Peribus_Controller peribus_controller(
 //   // memory[inda_addr] = 16'h0;
 // end
 
+logic [1:0] control_output_mux;
+logic [15:0] tip_out;
+Mux4_16bit output_mux(
+  .in0(memory[addr & 'h1FF]),
+  .in1(tip_out),
+  .in2(peri_out),
+  .in3(16'hDEAD),
+  .control(control_output_mux),
+  .out(out_data)
+);
+
 // Read on leading edge
 always_ff @(posedge clk or negedge reset_bar)
 begin
@@ -96,7 +134,7 @@ begin
     // In Reset!
     carry_out <= 1'b0;
     zero_out <= 1'b0;
-    peri_read <= 1'b0;
+    //peri_read <= 1'b0;
     // memory[wreg_addr] <= 16'h0;
     // memory[carry_addr] <= 1'b0;
     // memory[zero_addr] <= 1'b0;
@@ -113,70 +151,90 @@ begin
     //[11'd0:end_of_mem]: begin
     if (addr <= end_of_mem) begin
       // TODO: rework all peripherals into TIPs
-      out_data <= memory[addr];  // read from memory (or TIPs)
-      peri_read <= 1'b0;
+      //out_data <= memory[addr];  // read from memory (or TIPs)
+      control_output_mux <= 2'd0;
+      //peri_read <= 1'b0;
     end
 
     // memory[wreg_addr] <= wreg;
     //wreg_addr: begin
     else if (addr == wreg_addr) begin
-      peri_read <= 1'b0;
-      out_data <= wreg;
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      //out_data <= wreg;
+      tip_out <= wreg;
     end
 
     // memory[carry_addr] <= {15'd0, carry};
     //carry_addr: begin
     else if (addr == carry_addr) begin
-      peri_read <= 1'b0;
-      out_data <= {15'd0, carry};
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      //out_data <= {15'd0, carry};
+      tip_out <= {15'd0, carry};
     end
 
     // memory[zero_addr] <= {15'd0, zero};
     //zero_addr: begin
     else if (addr == zero_addr) begin
-      peri_read <= 1'b0;
-      out_data <= {15'd0, zero};
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      //out_data <= {15'd0, zero};
+      tip_out <= {15'd0, zero};
     end
 
     // Indirect Read Peripheral
     //indv_addr: begin
     else if (addr == indv_addr) begin
-      peri_read <= 1'b0;
-      if (inda_value >= end_of_mem) out_data <= 16'hDEAD;
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      // if (inda_value >= end_of_mem) out_data <= 16'hDEAD;
+      // // Return 0 if trying to trigger infinite indirection
+      // else if (inda_value == indv_addr) out_data <= 16'h0000;
+      // // Return indirect value, no need to actually map it to memory
+      // else out_data <= memory[inda_value];
+      // // return requested memory
+      if (inda_value >= end_of_mem) tip_out <= 16'hDEAD;
       // Return 0 if trying to trigger infinite indirection
-      else if (inda_value == indv_addr) out_data <= 16'h0000;
+      else if (inda_value == indv_addr) tip_out <= 16'h0000;
       // Return indirect value, no need to actually map it to memory
-      else out_data <= memory[inda_value];
+      else tip_out <= memory[inda_value];
       // return requested memory
     end
 
     // Indirect Read Address
     //inda_addr: begin
     else if (addr == inda_addr) begin
-      peri_read <= 1'b0;
-      out_data <= inda_value;
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      //out_data <= inda_value;
+      tip_out <= inda_value;
     end
 
     //irq_addr: begin
     else if (addr == irq_addr) begin
-      peri_read <= 1'b0;
-      out_data <= {14'd0, irq_en, peri_irq};
+      //peri_read <= 1'b0;
+      control_output_mux <= 2'd1;
+      //out_data <= {14'd0, irq_en, peri_irq};
+      tip_out <= {14'd0, irq_en, peri_irq};
     end
 
     // read from Peribus
     // [PERI_ADDR_START:(PERI_ADDR_START + PERI_ADDR_WIDTH - 1)] : begin
     else if ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) begin
       //else if (addr >= PERI_ADDR_START) begin
-      out_data <= peri_out;
-      peri_read <= 1'b1;
+      // out_data <= peri_out;
+      // peri_read <= 1'b1;
+      control_output_mux <= 2'd2;
     end
 
     // Invalid region gets 0xDEAD
     //default: begin
     else begin
       //if (addr > (end_of_mem + PERI_ADDR_WIDTH - 1)) begin
-      out_data <= 16'hDEAD;
-      peri_read <= 1'b0;
+      // out_data <= 16'hDEAD;
+      // peri_read <= 1'b0;
+      control_output_mux <= 2'd3;
     end
     //endcase
   end
@@ -243,7 +301,7 @@ always_ff @(negedge clk or negedge reset_bar) begin
       end
 
       // Write to peripheral
-      else if ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH))) begin
+      else if ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) begin
         peri_write <= 1'b1;
       end
 
@@ -253,6 +311,7 @@ always_ff @(negedge clk or negedge reset_bar) begin
       end
 
     end
+    else peri_write <= 1'b0;
   end
 end
 

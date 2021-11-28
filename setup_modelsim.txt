@@ -1,0 +1,57 @@
+add wave -position end  sim:/ISA/CLOCK_50
+add wave -position end  sim:/ISA/instr_clock
+add wave -position end  sim:/ISA/mem_clock
+add wave -position end  sim:/ISA/pc_in
+add wave -position end  sim:/ISA/pc_out
+add wave -position end  sim:/ISA/instruction
+add wave -position end  sim:/ISA/SW
+add wave -position end  sim:/ISA/LEDR
+add wave -position end  sim:/ISA/wreg_out
+add wave -position end  sim:/ISA/alu_out
+add wave -position end  sim:/ISA/mem_out
+add wave -position end  sim:/ISA/data_memory/in_data
+add wave -position end  sim:/ISA/data_memory/write_enable
+add wave -position end  sim:/ISA/data_memory/ram_wr_clk
+add wave -position end  sim:/ISA/data_memory/ram_clk
+add wave -position end  sim:/ISA/data_memory/ram_read
+add wave -position end  sim:/ISA/data_memory/ram_write
+add wave -position end  sim:/ISA/data_memory/ram_rd_dly
+add wave -position end  sim:/ISA/data_memory/ram_wr_dly
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/address_a
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/address_b
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/clock
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/data_a
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/data_b
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/rden_a
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/rden_b
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/wren_a
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/wren_b
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/q_a
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/q_b
+add wave -position end  sim:/ISA/data_memory/ipram2port_inst/altsyncram_component/m_default/altsyncram_inst/mem_data
+add wave -position end  sim:/ISA/data_memory/peri_read_out
+add wave -position end  sim:/ISA/data_memory/peri_write_out
+add wave -position end  sim:/ISA/data_memory/peri_out
+add wave -position end  sim:/ISA/data_memory/peribus_controller/irq_lines
+add wave -position end  sim:/ISA/data_memory/peribus_controller/chipselects
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_0/port_input
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_0/port_dir
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_0/port_edges
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_0/irq_en
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_0/irq_flags
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_1/port_output
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_1/port_dir
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_1/port_edges
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_1/irq_en
+add wave -position end  sim:/ISA/data_memory/peribus_controller/gpio_1/irq_flags
+add wave -position end  sim:/ISA/data_memory/peribus_controller/timer_0/count
+add wave -position end  sim:/ISA/data_memory/peribus_controller/timer_0/period
+add wave -position end  sim:/ISA/data_memory/peribus_controller/timer_0/control
+add wave -position end  sim:/ISA/data_memory/peribus_controller/timer_0/status
+add wave -position end  sim:/ISA/data_memory/peribus_controller/timer_0/pre_count
+force -freeze sim:/ISA/CLOCK_50 1 0, 0 {12 ps} -r 25
+force -freeze sim:/ISA/SW ffff 0
+run
+force -freeze sim:/ISA/SW 2ffff 0
+run
+run

@@ -353,7 +353,7 @@ __IRQ:
 //     if (sw_prescale == 0) {
 
     smc sw_prescale  // goto __IRQ_SW if sw_prescale != 0
-    gol __IRQ_SW
+    gol __IRQ_PRE
 
 //       sw_prescale = (*SW >> 8) & 0xff;
 
@@ -378,6 +378,8 @@ __IRQ:
 
 //     }
 //     sw_prescale--;
+
+__IRQ_PRE:
 
     mlw 1
     sub sw_prescale,m

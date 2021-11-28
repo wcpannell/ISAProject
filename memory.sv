@@ -34,7 +34,27 @@ parameter irq_addr = 11'h205;
 parameter PERI_ADDR_START = 11'h300;
 parameter PERI_ADDR_WIDTH = 11'h100;
 
-logic [15:0] memory[0:end_of_mem];
+// used for identifying active region
+localparam MEM_UPPER = 3'b00?;
+localparam TIP_UPPER = 3'b010;
+localparam PERI_UPPER = 3'b011;
+
+// active region types
+localparam MEM_ACTIVE = 2'b00;
+localparam TIP_ACTIVE = 2'b01;
+localparam PERI_ACTIVE = 2'b10;
+localparam BAD_ACTIVE = 2'b11;
+
+//TIP lower bit values
+localparam WREG_ADDR_LOWER = wreg_addr[2:0];
+localparam CARRY_ADDR_LOWER = carry_addr[2:0];
+localparam ZERO_ADDR_LOWER = zero_addr[2:0];
+localparam INDV_ADDR_LOWER = indv_addr[2:0];
+localparam INDA_ADDR_LOWER = inda_addr[2:0];
+localparam IRQ_ADDR_LOWER = irq_addr[2:0];
+
+
+// logic [15:0] memory[0:end_of_mem];
 logic carry, zero;
 
 logic [7:0] peri_addr;
@@ -43,8 +63,70 @@ logic [15:0] peri_out;
 // logic [15:0] peri_in;  // not required, can share bus w/ memory
 
 // Registers
-logic [15:0] inda_value;
+logic [10:0] inda_value;
+logic [15:0] indv_read_value;
 logic irq_en;
+
+logic [15:0] memory_out;
+logic indirect_write, mem_write;
+
+logic [1:0] region_active;
+logic [15:0] tip_out;
+
+// select correct write interface
+assign mem_write = (region_active == MEM_ACTIVE) ? write_enable : 1'b0;
+assign indirect_write = (
+  (region_active == TIP_ACTIVE) &&
+  (addr[2:0] == INDV_ADDR_LOWER)
+) ? write_enable : 1'b0;
+
+// Memory_block memory (
+//   .clk(clk),
+//   .write_en(mem_write),
+//   .indv_write_en(indirect_write),
+//   .addr(addr[9:0]),
+//   .inda_addr(inda_value[9:0]),
+//   .write_in(in_data),
+//   .indv_write_in(in_data),
+//   .read_out(memory_out),
+//   .indv_out(indv_read_value)
+// );
+// Drive the ram clocks
+logic ram_wr_clk, ram_clk, ram_read, ram_write, ram_rd_dly, ram_wr_dly;
+assign ram_wr_clk = ~clk;
+
+// sets delay at the next peribus_clock falling edge after posedge clk
+always_ff @(negedge peribus_clock)
+  ram_rd_dly <= clk;
+
+// sets delay until the next peribus_clock falling edge after posedge ram_wr_clk
+always_ff @(negedge peribus_clock)
+  ram_wr_dly <= ram_wr_clk;
+
+// pulse on clk rising edge, half period of peribus_clock
+assign ram_read = clk & ~ram_rd_dly;
+
+// pulse on clk falling edge, half period of peribus_clock
+// must be combined with write_enable
+assign ram_write = ram_wr_clk & ~ram_wr_dly;
+
+// double pulse to drive the ram clock. first pulse for read, second for write
+assign ram_clk = ram_read | ram_write;
+
+ipram2port ipram2port_inst (
+  .address_a ( addr[8:0] ),
+  .address_b ( inda_value[8:0] ),
+  .data_a ( in_data ),
+  .data_b ( in_data ),
+  .clock ( ram_clk ),
+  .rden_a ( ram_read ),
+  .rden_b ( ram_read ),
+  .wren_a ( ram_write & mem_write ),
+  .wren_b ( ram_write & indirect_write ),
+  .q_a ( memory_out ),
+  .q_b ( indv_read_value )
+);
+
 
 // only 8 bits in peripheral address.
 // use peri_read to ignore out of bounds writes
@@ -55,26 +137,14 @@ assign peri_addr = addr[7:0];
 assign peri_read_out = (reset_bar) ? 1'b1 : 1'b0;
 
 // Disable peri_write outside of write cycle.
-
-// Neg edge of mem clock is when writes happen
-// Need to toggle off at negedge of next clock
 //
-// Write needs to go positive as early as the positive edge of the mem_clock and
-// late as the negedge of mem_clock if write_enable and addr is in range
-// Write needs to go negative on the next positive edge of peribus_clock
-// write cannot go positive again until the first condition
-// always_ff @(posedge peribus_clock or posedge clk) begin
-//   if (clk) peri_write_inhibit <= 1'b0;
-//   else if (peribus_clock && peri_write_out) peri_write_inhibit <= 1'b1;
-// end
-// assign peri_write_out = (~peri_write_inhibit) ? peri_write : 1'b0;
-// this below is a reimplementation of that
+// peri_write needs to go positive as early as the positive edge of the mem_clock
+// and late as the negedge of mem_clock if write_enable and addr is in range
+// peri_write needs to go negative on the next positive edge of peribus_clock
+// peri_write cannot go positive again until the first condition
 
-logic peri_addr_range;
-assign peri_addr_range = ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) ? 1'b1 : 1'b0;
+// assign peri_addr_range = ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) ? 1'b1 : 1'b0;
 
-// this can probably be simplified to triggereing off the negedge of clk with
-// a 1-peribus_clock hold
 always_ff @(posedge peribus_clock or posedge clk) begin
   if (clk) peri_write_inhibit <= 1'b0;
   else peri_write_inhibit <= 1'b1;
@@ -82,7 +152,7 @@ end
 
 // not inhibited and in peripheral address range? peri_write = write_enable,
 // else no write.
-assign peri_write_out = (~peri_write_inhibit && peri_addr_range) ? write_enable : 1'b0;
+assign peri_write_out = (~peri_write_inhibit && (region_active == PERI_ACTIVE)) ? write_enable : 1'b0;
 
 // interrupt signal
 assign interrupt = (irq_en) ? peri_irq : 1'b0;
@@ -100,219 +170,127 @@ Peribus_Controller peribus_controller(
   .bidir1(bidir1)
 );
 
-
-// initial
-// begin
-//   // initialization
-//   // carry_out = 1'b0;
-//   // carry = 1'b0;
-//   // zero_out = 1'b0;
-//   // zero = 1'b0;
-//   inda_value = 16'h0;
-//   //irq_en = 1'b0;
-//   // memory[wreg_addr] = 16'h0;
-//   // memory[carry_addr] = 1'b0;
-//   // memory[zero_addr] = 1'b0;
-//   // memory[inda_addr] = 16'h0;
-// end
-
-logic [1:0] control_output_mux;
-logic [15:0] tip_out;
+// Read output mux
 Mux4_16bit output_mux(
-  .in0(memory[addr & 'h1FF]),
+  .in0(memory_out),
   .in1(tip_out),
   .in2(peri_out),
   .in3(16'hDEAD),
-  .control(control_output_mux),
+  .control(region_active),
   .out(out_data)
 );
 
-// Read on leading edge
-always_ff @(posedge clk or negedge reset_bar)
-begin
-  if (~reset_bar) begin
-    // In Reset!
-    carry_out <= 1'b0;
-    zero_out <= 1'b0;
-    //peri_read <= 1'b0;
-    // memory[wreg_addr] <= 16'h0;
-    // memory[carry_addr] <= 1'b0;
-    // memory[zero_addr] <= 1'b0;
-  end else begin
-    // Running!
-
-    // Output Status Bit Values
-    carry_out <= carry;
-    zero_out <= zero;
-
-    // memory read interface
-    // case (addr) inside  // QUARTUS LITE DOESNT SUPPORT THIS ARGGGGGGGGGGGGGG
-    // Memory Read
-    //[11'd0:end_of_mem]: begin
-    if (addr <= end_of_mem) begin
-      // TODO: rework all peripherals into TIPs
-      //out_data <= memory[addr];  // read from memory (or TIPs)
-      control_output_mux <= 2'd0;
-      //peri_read <= 1'b0;
-    end
-
-    // memory[wreg_addr] <= wreg;
-    //wreg_addr: begin
-    else if (addr == wreg_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      //out_data <= wreg;
-      tip_out <= wreg;
-    end
-
-    // memory[carry_addr] <= {15'd0, carry};
-    //carry_addr: begin
-    else if (addr == carry_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      //out_data <= {15'd0, carry};
-      tip_out <= {15'd0, carry};
-    end
-
-    // memory[zero_addr] <= {15'd0, zero};
-    //zero_addr: begin
-    else if (addr == zero_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      //out_data <= {15'd0, zero};
-      tip_out <= {15'd0, zero};
-    end
-
-    // Indirect Read Peripheral
-    //indv_addr: begin
-    else if (addr == indv_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      // if (inda_value >= end_of_mem) out_data <= 16'hDEAD;
-      // // Return 0 if trying to trigger infinite indirection
-      // else if (inda_value == indv_addr) out_data <= 16'h0000;
-      // // Return indirect value, no need to actually map it to memory
-      // else out_data <= memory[inda_value];
-      // // return requested memory
-      if (inda_value >= end_of_mem) tip_out <= 16'hDEAD;
-      // Return 0 if trying to trigger infinite indirection
-      else if (inda_value == indv_addr) tip_out <= 16'h0000;
-      // Return indirect value, no need to actually map it to memory
-      else tip_out <= memory[inda_value];
-      // return requested memory
-    end
-
-    // Indirect Read Address
-    //inda_addr: begin
-    else if (addr == inda_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      //out_data <= inda_value;
-      tip_out <= inda_value;
-    end
-
-    //irq_addr: begin
-    else if (addr == irq_addr) begin
-      //peri_read <= 1'b0;
-      control_output_mux <= 2'd1;
-      //out_data <= {14'd0, irq_en, peri_irq};
-      tip_out <= {14'd0, irq_en, peri_irq};
-    end
-
-    // read from Peribus
-    // [PERI_ADDR_START:(PERI_ADDR_START + PERI_ADDR_WIDTH - 1)] : begin
-    else if ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) begin
-      //else if (addr >= PERI_ADDR_START) begin
-      // out_data <= peri_out;
-      // peri_read <= 1'b1;
-      control_output_mux <= 2'd2;
-    end
-
-    // Invalid region gets 0xDEAD
-    //default: begin
-    else begin
-      //if (addr > (end_of_mem + PERI_ADDR_WIDTH - 1)) begin
-      // out_data <= 16'hDEAD;
-      // peri_read <= 1'b0;
-      control_output_mux <= 2'd3;
-    end
-    //endcase
-  end
+// Which memory portion is active?
+always_comb begin
+  casez (addr[10:8])
+    MEM_UPPER: region_active = MEM_ACTIVE;
+    TIP_UPPER: region_active = TIP_ACTIVE;
+    PERI_UPPER: region_active = PERI_ACTIVE;
+    default: region_active = BAD_ACTIVE;
+  endcase
 end
 
-// Write on trailing edge
+// Tightly Integrated Peripherals (TIP)
+//
+// The name was chosen before the memory was broken into its own block
+// these registers were written into and read from memory
+always_comb begin
+  case(addr[2:0])
+    WREG_ADDR_LOWER: tip_out = wreg;
+    CARRY_ADDR_LOWER: tip_out = {15'd0, carry};
+    ZERO_ADDR_LOWER: tip_out = {15'd0, zero};
+    INDV_ADDR_LOWER: tip_out = indv_read_value;
+    INDA_ADDR_LOWER: tip_out = inda_value;
+    //IRQ_ADDR_LOWER
+    default:  tip_out = {14'd0, irq_en, peri_irq};
+  endcase
+end
+
+// Carry Out on Read
+always_ff @(posedge clk or negedge reset_bar) begin
+  if (~reset_bar) carry_out <= 1'b0;
+  else carry_out <= carry;
+end
+always_ff @(posedge clk or negedge reset_bar) begin
+  if (~reset_bar) zero_out <= 1'b0;
+  else zero_out <= zero;
+end
+
+// carry in on write edge
 always_ff @(negedge clk or negedge reset_bar) begin
-  // We'll never read on write edge
-  if (~reset_bar) begin
-    // re-initialize
-    carry <= 1'b0;
-    zero <= 1'b0;
-    peri_write <= 1'b0;
-    irq_en <= 1'b0;
-  end else begin
-    // update Status bits values
-    carry <= carry_in;
-    zero <= zero_in;
-
-    // Handle Memory Writes
-    if (write_enable) begin
-
-      // Write to memory
-      if (addr <= end_of_mem) begin
-        memory[addr] <= in_data;
-        peri_write <= 1'b0;
-      end
-
-      // Writing to wreg not supported
-
-      // Ignore value of carry write except for LSB
-      // Direct or Indirect has same result
-      else if ((addr == carry_addr) || ((addr == indv_addr) && (inda_value == carry_addr))) begin
-        carry <= in_data[0];
-        peri_write <= 1'b0;
-      end
-
-      // Ignore value of zero write except for LSB
-      // Direct or Indirect has same result
-      else if ((addr == zero_addr) || ((addr == indv_addr) && (inda_value == zero_addr))) begin
-        zero <= in_data[0];
-        peri_write <= 1'b0;
-      end
-
-      // Indirect Write
-      else if (addr == indv_addr) begin
-        peri_write <= 1'b0;
-        if (inda_value != indv_addr) memory[inda_value] <= in_data;
-        // ignore writes if pointer (somehow) points
-        // to indv
-      end
-
-      // Indirect Write Address
-      else if (addr == inda_addr) begin
-        //memory[addr] <= in_data & 16'h1FF;
-        inda_value <= in_data & end_of_mem;  // force value to be within memory
-        peri_write <= 1'b0;
-      end
-
-      // IRQ. Writing to peri_irq has no effect
-      else if (addr == irq_addr) begin
-        peri_write <= 1'b0;
-        irq_en <= in_data[1];
-      end
-
-      // Write to peripheral
-      else if ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) begin
-        peri_write <= 1'b1;
-      end
-
-      // Ignore writes to unimplemented memory
-      else begin
-        peri_write <= 1'b0;
-      end
-
-    end
-    else peri_write <= 1'b0;
-  end
+  // re-initialize
+  if (~reset_bar) carry <= 1'b0;
+  else if ((write_enable && region_active == TIP_ACTIVE) && (addr[2:0] == CARRY_ADDR_LOWER)) carry <= in_data[0];
+  else carry <= carry_in;
 end
 
+// zero in on write edge
+always_ff @(negedge clk or negedge reset_bar) begin
+  // re-initialize
+  if (~reset_bar) zero <= 1'b0;
+  else if (
+    write_enable &&
+    (region_active == TIP_ACTIVE) &&
+    (addr[2:0] == ZERO_ADDR_LOWER)
+  ) zero <= in_data[0];
+  else zero <= zero_in;
+end
+
+// write to indv
+// handled in assign near Memory_block
+
+// inda in on write edge
+always_ff @(negedge clk or negedge reset_bar) begin
+  // re-initialize
+  if (~reset_bar) inda_value <= 11'd0;
+  else if (
+    write_enable &&
+    (region_active == TIP_ACTIVE) &&
+    (addr[2:0] == INDA_ADDR_LOWER)
+  ) inda_value <= (in_data != indv_addr) ? in_data[10:0] : 11'd0;  // only write within limits
+end
+
+// IRQ. Writing to peri_irq has no effect
+always_ff @(negedge clk or negedge reset_bar) begin
+  // re-initialize
+  if (~reset_bar) irq_en <= 1'b0;
+  else if (
+    write_enable &&
+    (region_active == TIP_ACTIVE) &&
+    (addr[2:0] == IRQ_ADDR_LOWER)
+  ) irq_en <= in_data[1];
+end
+endmodule
+
+// not used in favor of IP ram module
+module Memory_block #(
+  parameter WORDS = 512,
+  parameter WORD_SIZE = 16
+) (
+  input var logic clk,  // write on negedge
+  input var logic write_en,
+  input var logic indv_write_en,
+  input var logic [$clog2(WORDS) - 1:0] addr,
+  input var logic [$clog2(WORDS) - 1:0] inda_addr,
+  input var logic [WORD_SIZE - 1:0] write_in,
+  input var logic [WORD_SIZE - 1:0] indv_write_in,
+  output var logic [WORD_SIZE - 1:0] read_out,
+  output var logic [WORD_SIZE - 1:0] indv_out
+);
+
+logic [WORD_SIZE - 1:0] memory[WORDS - 1:0];
+
+always_ff @(negedge clk) begin
+  if (write_en) memory[addr] <= write_in;
+end
+
+always_ff @(negedge clk) begin
+  if (write_en) memory[inda_addr] <= indv_write_in;
+end
+
+// if writing indirectly, address write function with inda_addr, else normal addr
+always_ff @(posedge clk) begin
+  read_out <= memory[addr];
+  indv_out <= memory[inda_addr];
+end
 endmodule

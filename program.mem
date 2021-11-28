@@ -48,6 +48,7 @@
 //	END_OF_PROGRAM		equ 0x07F
 //	ADD			equ 0x080
 //	__IRQ			equ 0x098
+//	__IRQ_PRE		equ 0x0B0
 //	__IRQ_SW		equ 0x0B2
 //	__IRQ_RESTORE		equ 0x0D4
 //
@@ -654,9 +655,9 @@ C0B2
 //00A0
 B004
 
-//	    gol __IRQ_SW
+//	    gol __IRQ_PRE
 //00A1
-C0B2
+C0B0
 
 //	//       sw_prescale = (*SW >> 8) & 0xff;
 //
@@ -723,6 +724,9 @@ C0B2
 //	//     }
 //	//     sw_prescale--;
 //
+//	__IRQ_PRE:
+//00B0
+
 //	    mlw 1
 //00B0
 2001

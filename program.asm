@@ -256,8 +256,51 @@ MAIN_SW_LOOP:
     gol MAIN_SW_LOOP
 
 MAIN_SW_LOOP_END:
+	
+//    // Prep counting blinkenlitez
+//    *TIMER_0_period = 0xFFFF;
+	mlw -1
+	mwm TIMER_0_period
 
-//  // Prep counting blinkenlitez
+//    *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+//  optimized => -255 => 0x701 => sign ext => 0xff01
+	mlw -255
+	mwm TIMER_0_control
+//  
+//    // This shows that the timer peripheral is working
+//    while (*SW != 0x0000) {
+	sms SW
+	gol MAIN_TMR_LOOP_END
+
+MAIN_TMR_LOOP:
+
+//      if (*TIMER_0_status & (1 << TMR0_STAT_IRQ_OFFSET)) {
+// Only bit in TMR0_STAT, so if it's clear, whole register is clear
+	sms TIMER_0_status
+	gol MAIN_TMR_LOOP_ELSE
+	
+//        *TIMER_0_status = 0; // clear flag
+	mlw 0
+	mwm TIMER_0_status
+
+//        *TIMER_0_control |= 1 << TMR0_CTL_RUN_OFFSET;
+// optimized: 1 << 0 = 1
+	mlw 1
+	owm TIMER_0_control,m
+
+//        *LEDR--;
+// 1 still in Wreg
+	sub LEDR,m
+
+//      }
+MAIN_TMR_LOOP_ELSE:
+	smc SW
+	gol MAIN_TMR_LOOP
+
+//    }
+MAIN_TMR_LOOP_END:
+
+//  // Prep interrupt counting blinkenlitez
 //  *SW_irq_en = 0xFFFF; // Interupt on change
 //  *TIMER_0_period = 0xFFFF;
 
@@ -267,7 +310,7 @@ MAIN_SW_LOOP_END:
 
 //  *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) |
 //                     (1 << TMR0_CTL_IRQEN_OFFSET) |
-//                     (1 << TMR0_CTL_IRQEN_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+//                     (1 << TMR0_CTL_RELOAD_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
 
 // optimized => *TIMER_0_control = 0xFF03
     

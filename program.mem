@@ -44,13 +44,16 @@
 //	MAIN_WHILE_LOOP_END	equ 0x056
 //	MAIN_SW_LOOP		equ 0x071
 //	MAIN_SW_LOOP_END	equ 0x077
-//	MAIN_FOREVER_LOOP	equ 0x07E
-//	END_OF_PROGRAM		equ 0x07F
-//	ADD			equ 0x080
-//	__IRQ			equ 0x098
-//	__IRQ_PRE		equ 0x0B0
-//	__IRQ_SW		equ 0x0B2
-//	__IRQ_RESTORE		equ 0x0D4
+//	MAIN_TMR_LOOP		equ 0x07D
+//	MAIN_TMR_LOOP_ELSE	equ 0x084
+//	MAIN_TMR_LOOP_END	equ 0x086
+//	MAIN_FOREVER_LOOP	equ 0x08D
+//	END_OF_PROGRAM		equ 0x08E
+//	ADD			equ 0x08F
+//	__IRQ			equ 0x0A7
+//	__IRQ_PRE		equ 0x0BF
+//	__IRQ_SW		equ 0x0C1
+//	__IRQ_RESTORE		equ 0x0E3
 //
 // Literal Map:
 //	IRQ_EN_OFFSET		equ 1
@@ -126,7 +129,7 @@ C000
 
 //0004	ORG 0x0004
 //0004  INTERRUPT_VECTOR: gol __IRQ
-C098
+C0A7
 
 //	// I could have put the IRQ function here, but didn't want to renumber everthing in program.mem
 //
@@ -219,7 +222,7 @@ C010
 //001E		mwm STACKPTR
 11FF
 //001F		gol ADD
-C080
+C08F
 //
 //0020	MAIN_ADD_RETURN:
 //0020		mm STACKPTR,w
@@ -486,20 +489,104 @@ C071
 //	MAIN_SW_LOOP_END:
 //0077
 
-//	//  // Prep counting blinkenlitez
+//	//    // Prep counting blinkenlitez
+//	//    *TIMER_0_period = 0xFFFF;
+//		mlw -1
+//0077
+27FF
+
+//		mwm TIMER_0_period
+//0078
+1309
+
+//	//    *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+//	//  optimized => -255 => 0x701 => sign ext => 0xff01
+//		mlw -255
+//0079
+2701
+
+//		mwm TIMER_0_control
+//007A
+130A
+
+//	//    // This shows that the timer peripheral is working
+//	//    while (*SW != 0x0000) {
+//		sms SW
+//007B
+A300
+
+//		gol MAIN_TMR_LOOP_END
+//007C
+C086
+
+//	MAIN_TMR_LOOP:
+//007D
+
+//	//      if (*TIMER_0_status & (1 << TMR0_STAT_IRQ_OFFSET)) {
+//	// Only bit in TMR0_STAT, so if it's clear, whole register is clear
+//		sms TIMER_0_status
+//007D
+A30B
+
+//		gol MAIN_TMR_LOOP_ELSE
+//007E
+C084
+
+//	//        *TIMER_0_status = 0; // clear flag
+//		mlw 0
+//007F
+2000
+
+//		mwm TIMER_0_status
+//0080
+130B
+
+//	//        *TIMER_0_control |= 1 << TMR0_CTL_RUN_OFFSET;
+//	// optimized: 1 << 0 = 1
+//		mlw 1
+//0081
+2001
+
+//		owm TIMER_0_control,m
+//0082
+6B0A
+
+//	//        *LEDR--;
+//	// 1 still in Wreg
+//		sub LEDR,m
+//0083
+9B04
+
+//	//      }
+//	MAIN_TMR_LOOP_ELSE:
+//0084
+
+//		smc SW
+//0084
+B300
+
+//		gol MAIN_TMR_LOOP
+//0085
+C07D
+
+//	//    }
+//	MAIN_TMR_LOOP_END:
+//0086
+
+//	//  // Prep interrupt counting blinkenlitez
 //	//  *SW_irq_en = 0xFFFF; // Interupt on change
 //	//  *TIMER_0_period = 0xFFFF;
 //
 //	    mlw -1
-//0077
+//0086
 27FF
 
 //	    mwm SW_irq_en
-//0078
+//0087
 1302
 
 //	    mwm TIMER_0_period
-//0079
+//0088
 1309
 
 //	//  *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) |
@@ -509,21 +596,21 @@ C071
 //	// optimized => *TIMER_0_control = 0xFF07
 //
 //	    mlw -249  // = 707 -> sign ext -> 0xFF07
-//007A
+//0089
 2707
 
 //	    mwm TIMER_0_control
-//007B
+//008A
 130A
 
 //	//  *IRQ = (1 << IRQ_EN_OFFSET); // Enable Interrupts
 //
 //		mlw 2
-//007C
+//008B
 2002
 
 //		mwm IRQ
-//007D
+//008C
 1205
 
 //	//  // Show counting blinkenlitez, see __irq
@@ -531,20 +618,20 @@ C071
 //	//  }
 //
 //	MAIN_FOREVER_LOOP:
-//007E
+//008D
 
 //	    gol MAIN_FOREVER_LOOP
-//007E
-C07E
+//008D
+C08D
 
 //	//}
 //
-//007F	END_OF_PROGRAM:
-//007F		wfi // effectively a halt if there's no interrupt
+//008E	END_OF_PROGRAM:
+//008E		wfi // effectively a halt if there's no interrupt
 E000
 //			// and/or the interrupt handler just does rfi
 //
-//0080	ADD:
+//008F	ADD:
 //	// return addr = *(STACKPTR + 2)
 //	// by_ref = *(STACKPTR)
 //	// by_val = *(STACKPTR + 1)
@@ -553,79 +640,79 @@ E000
 //	//	int add(int *by_ref, int by_val) {
 //		ADD_TEMP_0 equ 0x000F
 //
-//0080		mm STACKPTR,w
+//008F		mm STACKPTR,w
 01FF
-//0081		mwm INDA
+//0090		mwm INDA
 1204
-//0082		mlw .1
+//0091		mlw .1
 2001
-//0083		add INDA,m  // by_val
+//0092		add INDA,m  // by_val
 8A04
-//0084		mm INDV,w
+//0093		mm INDV,w
 0203
-//0085		mwm ADD_TEMP_0 // by_val
+//0094		mwm ADD_TEMP_0 // by_val
 100F
-//0086		mm STACKPTR, w
+//0095		mm STACKPTR, w
 01FF
-//0087		mwm INDA,m  // by_ref
+//0096		mwm INDA,m  // by_ref
 1204
-//0088		mm INDV,w  // by_ref pointer value loaded in W
+//0097		mm INDV,w  // by_ref pointer value loaded in W
 0203
-//0089		mwm INDA  // by_ref pointer value loaded into indirect
+//0098		mwm INDA  // by_ref pointer value loaded into indirect
 1204
-//008A		mm ADD_TEMP_0,w  // by_val
+//0099		mm ADD_TEMP_0,w  // by_val
 000F
 //	//	  *by_ref = *by_ref + by_val;
-//008B		add INDV,m
+//009A		add INDV,m
 8A03
 //
 //	//	  return by_val;
 //	//	}
-//008C		mm STACKPTR,w
+//009B		mm STACKPTR,w
 01FF
-//008D		mwm INDA,m
+//009C		mwm INDA,m
 1204
-//008E		mlw .1
+//009D		mlw .1
 2001
-//008F		sub INDA,m  // return value
+//009E		sub INDA,m  // return value
 9A04
-//0090		mm ADD_TEMP_0,w
+//009F		mm ADD_TEMP_0,w
 000F
-//0091		mwm INDV
+//00A0		mwm INDV
 1203
-//0092		mm INDA,w
+//00A1		mm INDA,w
 0204
-//0093		mwm STACKPTR // update STACKPTR
+//00A2		mwm STACKPTR // update STACKPTR
 11FF
-//0094		mlw .3
+//00A3		mlw .3
 2003
-//0095		add INDA,m  // return adress
+//00A4		add INDA,m  // return adress
 8A04
-//0096		mm INDV,w
+//00A5		mm INDV,w
 0203
-//0097		gow  // return
+//00A6		gow  // return
 D000
 
 //	__IRQ:
-//0098
+//00A7
 
 //	// void __attribute__((interrupt)) __irq(void) {
 //
 //	// SAVE STATE
 //	    mwm IRQ_SAVE_WREG  // save WREG, ZERO/CARRY unaffected
-//0098
+//00A7
 1005
 
 //	    mm ZERO,w  // ZERO set to value of ZERO, unaffected
-//0099
+//00A8
 0202
 
 //	    mwm IRQ_SAVE_ZC
-//009A
+//00A9
 1006
 
 //	    rlm IRQ_SAVE_ZC,m  // Rotate carry bit in
-//009B
+//00AA
 3806
 
 //	//   // on timer interrupt decrement software prescaler, on zero update the
@@ -633,144 +720,61 @@ D000
 //	//   if (*TIMER_0_status != 0) {
 //
 //	    sms TIMER_0_status  // goto __IRQ_SW if TIMER_0_status == 0
-//009C
+//00AB
 A30B
 
 //	    gol __IRQ_SW
-//009D
-C0B2
+//00AC
+C0C1
 
 //	//     *TIMER_0_status = 0; // clear interrupt
 //          mlw 0
-//009E
+//00AD
 2000
 
 //          mwm TIMER_0_status
-//009F
+//00AE
 130B
 
 //	//     if (sw_prescale == 0) {
 //
 //	    smc sw_prescale  // goto __IRQ_SW if sw_prescale != 0
-//00A0
+//00AF
 B004
 
 //	    gol __IRQ_PRE
-//00A1
-C0B0
+//00B0
+C0BF
 
 //	//       sw_prescale = (*SW >> 8) & 0xff;
 //
 //	    mm SW,w
-//00A2
-0300
-
-//	    mwm sw_prescale
-//00A3
-1004
-
-//	    rrm sw_prescale,m
-//00A4
-4804
-
-//	    rrm sw_prescale,m
-//00A5
-4804
-
-//	    rrm sw_prescale,m
-//00A6
-4804
-
-//	    rrm sw_prescale,m
-//00A7
-4804
-
-//	    rrm sw_prescale,m
-//00A8
-4804
-
-//	    rrm sw_prescale,m
-//00A9
-4804
-
-//	    rrm sw_prescale,m
-//00AA
-4804
-
-//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
-//00AB
-4804
-
-//	    mlw 0xff
-//00AC
-20FF
-
-//	    awm sw_prescale,m  // which gets masked out, so don't need to clear carry
-//00AD
-5804
-
-//	                       // for logical shift
-//
-//	//       *LEDR++;
-//
-//	    mlw 1
-//00AE
-2001
-
-//	    add LEDR,m
-//00AF
-8B04
-
-//	//     }
-//	//     sw_prescale--;
-//
-//	__IRQ_PRE
-//00B0
-
-//	    mlw 1
-//00B0
-2001
-
-//	    sub sw_prescale,m
 //00B1
-9804
-
-//	//   }
-//
-//	__IRQ_SW:
-//00B2
-
-//	//   if (*SW_irq != 0) {
-//
-//	    sms SW_irq  // goto __IRQ_RESTORE if SW_irq == 0
-//00B2
-A303
-
-//	    gol __IRQ_RESTORE
-//00B3
-C0D4
-
-//	//     *SW_irq = 0; // Clear all, doesn't matter how many changed, we'll update the
-//	//                  // whole port
-//
-//	    mlw 0
-//00B4
-2000
-
-//	    mwm SW_irq
-//00B5
-1303
-
-//	//     // Software prescale gets upper 8 bits
-//	//     sw_prescale = (*SW >> 8) & 0xff;
-//
-//	    mm SW,w
-//00B6
 0300
 
 //	    mwm sw_prescale
-//00B7
+//00B2
 1004
+
+//	    rrm sw_prescale,m
+//00B3
+4804
+
+//	    rrm sw_prescale,m
+//00B4
+4804
+
+//	    rrm sw_prescale,m
+//00B5
+4804
+
+//	    rrm sw_prescale,m
+//00B6
+4804
+
+//	    rrm sw_prescale,m
+//00B7
+4804
 
 //	    rrm sw_prescale,m
 //00B8
@@ -780,36 +784,119 @@ C0D4
 //00B9
 4804
 
-//	    rrm sw_prescale,m
+//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
 //00BA
 4804
 
-//	    rrm sw_prescale,m
-//00BB
-4804
-
-//	    rrm sw_prescale,m
-//00BC
-4804
-
-//	    rrm sw_prescale,m
-//00BD
-4804
-
-//	    rrm sw_prescale,m
-//00BE
-4804
-
-//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
-//00BF
-4804
-
 //	    mlw 0xff
-//00C0
+//00BB
 20FF
 
 //	    awm sw_prescale,m  // which gets masked out, so don't need to clear carry
+//00BC
+5804
+
+//	                       // for logical shift
+//
+//	//       *LEDR++;
+//
+//	    mlw 1
+//00BD
+2001
+
+//	    add LEDR,m
+//00BE
+8B04
+
+//	//     }
+//	//     sw_prescale--;
+//
+//	__IRQ_PRE
+//00BF
+
+//	    mlw 1
+//00BF
+2001
+
+//	    sub sw_prescale,m
+//00C0
+9804
+
+//	//   }
+//
+//	__IRQ_SW:
 //00C1
+
+//	//   if (*SW_irq != 0) {
+//
+//	    sms SW_irq  // goto __IRQ_RESTORE if SW_irq == 0
+//00C1
+A303
+
+//	    gol __IRQ_RESTORE
+//00C2
+C0E3
+
+//	//     *SW_irq = 0; // Clear all, doesn't matter how many changed, we'll update the
+//	//                  // whole port
+//
+//	    mlw 0
+//00C3
+2000
+
+//	    mwm SW_irq
+//00C4
+1303
+
+//	//     // Software prescale gets upper 8 bits
+//	//     sw_prescale = (*SW >> 8) & 0xff;
+//
+//	    mm SW,w
+//00C5
+0300
+
+//	    mwm sw_prescale
+//00C6
+1004
+
+//	    rrm sw_prescale,m
+//00C7
+4804
+
+//	    rrm sw_prescale,m
+//00C8
+4804
+
+//	    rrm sw_prescale,m
+//00C9
+4804
+
+//	    rrm sw_prescale,m
+//00CA
+4804
+
+//	    rrm sw_prescale,m
+//00CB
+4804
+
+//	    rrm sw_prescale,m
+//00CC
+4804
+
+//	    rrm sw_prescale,m
+//00CD
+4804
+
+//	    rrm sw_prescale,m  // everything rotated in is in upper 8 bits
+//00CE
+4804
+
+//	    mlw 0xff
+//00CF
+20FF
+
+//	    awm sw_prescale,m  // which gets masked out, so don't need to clear carry
+//00D0
 5804
 
 //	                       // for logical shift
@@ -822,103 +909,103 @@ C0D4
 //	// optimized => IRQ_TEMP1 = ((*SW & 0xff) << 8) => (*SW << 8) & 0xff00
 //	// optimized => TIMER_0_control = IRQ_TEMP0 | IRQ_TEMP1
 //	    mm TIMER_0_control,w
-//00C2
+//00D1
 030A
 
 //	    mwm IRQ_TEMP0
-//00C3
+//00D2
 1008
 
 //	    mlw 0x0ff
-//00C4
+//00D3
 20FF
 
 //	    awm IRQ_TEMP0,m
-//00C5
+//00D4
 5808
 
 //	    mm SW,w
-//00C6
+//00D5
 0300
 
 //	    mwm IRQ_TEMP1
-//00C7
+//00D6
 1009
 
 //	    rlm IRQ_TEMP1,m
-//00C8
+//00D7
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00C9
+//00D8
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00CA
+//00D9
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00CB
+//00DA
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00CC
+//00DB
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00CD
+//00DC
 3809
 
 //	    rlm IRQ_TEMP1,m
-//00CE
+//00DD
 3809
 
 //	    rlm IRQ_TEMP1,m  // lower bits that are rotated in get masked
-//00CF
+//00DE
 3809
 
 //	    mlw -256  // 0xff00 => 0x700, sign ext => -256
-//00D0
+//00DF
 2700
 
 //	    awm IRQ_TEMP1,w
-//00D1
+//00E0
 5009
 
 //	    owm IRQ_TEMP0,w
-//00D2
+//00E1
 6008
 
 //	    mwm TIMER_0_control
-//00D3
+//00E2
 130A
 
 //	// }
 //
 //	__IRQ_RESTORE:
-//00D4
+//00E3
 
 //	// RESTORE STATE and Return from interrupt
 //	    mm IRQ_SAVE_INDA,w
-//00D4
+//00E3
 0007
 
 //	    mwm INDA  // Restore INDA
-//00D5
+//00E4
 1204
 
 //	    rrm IRQ_SAVE_ZC,m  // rotate carry back to its position
-//00D6
+//00E5
 4806
 
 //	    mm IRQ_SAVE_WREG,w  // restore WREG
-//00D7
+//00E6
 0005
 
 //	    mm IRQ_SAVE_ZC,m  // restore ZERO
-//00D8
+//00E7
 0806
 
 //	    rfi
-//00D9
+//00E8
 FFFF

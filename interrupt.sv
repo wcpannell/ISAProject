@@ -43,44 +43,4 @@ always_latch begin
   if (coerce_pc) interrupt_active = 1'b1;  // trigger on this edge
   else if (pc_mux_control == PC_SAVE) interrupt_active = 1'b0;  // reset & rearm on this "edge"
 end
-
-
-// // Interrupt one-shot
-// // Also sets interrupt active flag
-// always_ff @(posedge instr_clock or negedge reset_n) begin
-//   if (~reset_n) begin
-//     coerce_pc <= 1'b0;
-//     interrupt_active <= 1'b0;
-//     pc_save <= RESET_VECTOR;  // Reset if using rfi outside of interrupt
-//   end
-//   // Interrupt Requested
-//   else if (irq) begin
-//     // Not already in ISR, go there
-//     if (~interrupt_active) begin
-//       pc_save <= pc_next;
-//       new_pc <= INTERRUPT_VECTOR;
-//       interrupt_active <= 1'b1;  // Not active yet, next cycle
-//       coerce_pc <= 1'b1;
-//     end
-//     // In ISR? unlock the PC
-//     else  begin
-//       interrupt_active <= 1'b1;
-//       coerce_pc <= 1'b0;
-//     end
-//   end
-//   // rfi instruction
-//   else if (pc_mux == PC_SAVE) begin
-//       interrupt_active <= 1'b0;  // set inactive
-//     // Leaving interrupt service routine
-//     if (interrupt_active) begin
-//       new_pc <= pc_save;
-//       coerce_pc <= 1'b1;
-//     end
-//     else begin
-//       new_pc <= RESET_VECTOR;
-//       coerce_pc <= 1'b1;
-//     end
-//   end
-//   else coerce_pc <= 1'b0;
-// end
 endmodule

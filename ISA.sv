@@ -51,12 +51,15 @@ end
 
 Multi_Clock multi_clock(slower_clock, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
-//Program_Memory program_memory(pc_out, dummy_instr, instr_clock);
-iprom iprom_inst (
-  .address ( pc_out[8:0] ),
-  .clock ( instr_clock ),
-  .q ( instruction )
-);
+
+// Inferred memory works, but IP does not.
+Program_Memory program_memory(pc_out, instruction, instr_clock);
+//iprom iprom_inst (
+//  .address ( pc_out[8:0] ),
+//  .clock ( instr_clock ),
+//  .q ( instruction )
+//);
+
 Instruction_Decoder instruction_decoder(
   .opcode(opcode),
   .mem_clock(mem_clock),

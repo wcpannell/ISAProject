@@ -58,7 +58,7 @@ localparam IRQ_ADDR_LOWER = irq_addr[2:0];
 logic carry, zero;
 
 logic [7:0] peri_addr;
-logic peri_read, peri_read_out, peri_write, peri_write_out, peri_write_inhibit, peri_write_hold, peri_irq;
+logic peri_read, peri_read_out, peri_write, peri_write_out, peri_write_inhibit, peri_irq;
 logic [15:0] peri_out;
 // logic [15:0] peri_in;  // not required, can share bus w/ memory
 
@@ -79,6 +79,7 @@ assign indirect_write = (
   (region_active == TIP_ACTIVE) &&
   (addr[2:0] == INDV_ADDR_LOWER)
 ) ? write_enable : 1'b0;
+assign peri_write = (region_active == PERI_ACTIVE) ? write_enable : 1'b0;
 
 // Memory_block memory (
 //   .clk(clk),
@@ -145,14 +146,14 @@ assign peri_read_out = (reset_bar) ? 1'b1 : 1'b0;
 
 // assign peri_addr_range = ((addr >= PERI_ADDR_START) && (addr <= (PERI_ADDR_START + PERI_ADDR_WIDTH - 1))) ? 1'b1 : 1'b0;
 
-always_ff @(posedge peribus_clock or posedge clk) begin
-  if (clk) peri_write_inhibit <= 1'b0;
-  else peri_write_inhibit <= 1'b1;
-end
-
-// not inhibited and in peripheral address range? peri_write = write_enable,
-// else no write.
-assign peri_write_out = (~peri_write_inhibit && (region_active == PERI_ACTIVE)) ? write_enable : 1'b0;
+// always_ff @(posedge peribus_clock or posedge clk) begin
+//   if (clk) peri_write_inhibit <= 1'b0;
+//   else peri_write_inhibit <= 1'b1;
+// end
+// 
+// // not inhibited and in peripheral address range? peri_write = write_enable,
+// // else no write.
+// assign peri_write_out = (~peri_write_inhibit && (region_active == PERI_ACTIVE)) ? write_enable : 1'b0;
 
 // interrupt signal
 assign interrupt = (irq_en) ? peri_irq : 1'b0;
@@ -161,7 +162,7 @@ Peribus_Controller peribus_controller(
   .addr(peri_addr),
   .write_data(in_data),
   .read_data(peri_out),
-  .write_enable(peri_write_out),
+  .write_enable(peri_write & ram_write),
   .read_enable(peri_read_out),
   .clock(peribus_clock),
   .reset_n(reset_bar),

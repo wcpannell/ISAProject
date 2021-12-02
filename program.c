@@ -7,6 +7,8 @@
 #define TMR0_CTL_RELOAD_OFFSET 1
 #define TMR0_CTL_RUN_OFFSET 0
 
+#define TMR0_STAT_IRQ_OFFSET 1
+
 #define IRQ_EN_OFFSET 1
 
 volatile uint16_t *SW = (uint16_t *)0x300;
@@ -100,11 +102,24 @@ void main(void) {
   }
 
   // Prep counting blinkenlitez
+  *TIMER_0_period = 0xFFFF;
+  *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+
+  // This shows that the timer peripheral is working
+  while (*SW != 0x0000) {
+    if (*TIMER_0_status & (1 << TMR0_STAT_IRQ_OFFSET)) {
+      *TIMER_0_status = 0; // clear flag
+      *TIMER_0_control |= 1 << TMR0_CTL_RUN_OFFSET;
+      *LEDR--;
+    }
+  }
+
+  // Prep interrupt counting blinkenlitez
   *SW_irq_en = 0xFFFF; // Interupt on change
   *TIMER_0_period = 0xFFFF;
   *TIMER_0_control = (0xff << TMR0_CTL_PRE_OFFSET) |
                      (1 << TMR0_CTL_IRQEN_OFFSET) |
-                     (1 << TMR0_CTL_IRQEN_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
+                     (1 << TMR0_CTL_RELOAD_OFFSET) | (1 << TMR0_CTL_RUN_OFFSET);
   *IRQ = (1 << IRQ_EN_OFFSET); // Enable Interrupts
 
   // Show counting blinkenlitez, see __irq

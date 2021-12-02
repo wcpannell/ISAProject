@@ -40,6 +40,7 @@ logic [15:0] status;
 logic [7:0] pre_count;
 logic count_flag;
 logic prescale_output;
+logic timer_init;
 
 assign irq = (control[CTRL_IRQ_OFFSET] && status[STAT_IRQ_OFFSET]) ? 1'b1: 1'b0;
 
@@ -74,11 +75,14 @@ always_ff @(posedge clock or negedge reset_n) begin
   else if (control[CTRL_RUN_OFFSET]) begin
     // Overflow
     if (count == 16'd0) begin
-      count_flag <= 1'b1;
+      if (timer_init) count <= period;
+      else begin
+        count_flag <= 1'b1;
 
-      // if auto reload, load new count minus one (or not, if prescaled).
-      // Wait until IRQ is set (or was already set) before reloading
-      count <= (control[CTRL_RELOAD_OFFSET] && status[STAT_IRQ_OFFSET]) ? period - prescale_output : 16'd0;
+        // if auto reload, load new count minus one (or not, if prescaled).
+        // Wait until IRQ is set (or was already set) before reloading
+        count <= (control[CTRL_RELOAD_OFFSET] && status[STAT_IRQ_OFFSET]) ? period - prescale_output : 16'd0;
+      end
     end
     // Decrement
     else begin
@@ -86,6 +90,7 @@ always_ff @(posedge clock or negedge reset_n) begin
       count <= count - prescale_output;
     end
   end
+  else count_flag <= 1'b0;
 end
 
 // Prescale Counter
@@ -119,13 +124,26 @@ end
 // Control Register
 always_ff @(posedge clock or negedge reset_n) begin
   // reset
-  if (~reset_n) control <= 16'd0;
+  if (~reset_n) begin
+    control <= 16'd0;
+    timer_init <= 1'b0;
+  end
 
   // Peribus Write
-  else if (chipselect && write_en && (addr == 2)) control <= write_data;
+  else if (chipselect && write_en && (addr == 2)) begin
+    // if first start
+    if (~control[CTRL_RUN_OFFSET] && write_data[CTRL_RUN_OFFSET]) timer_init <= 1'b1;
+    control <= write_data;
+  end
 
-  // Flip Run bit when complete
-  else if (~control[CTRL_RELOAD_OFFSET] && (count == 16'd0)) control[CTRL_RUN_OFFSET] <= 1'b0;
+  else begin
+    // Flip Run bit when complete. On first start, wait until timer_init is
+    // cleared before calling it complete.
+    if (~control[CTRL_RELOAD_OFFSET] && (count == 16'd0)) control[CTRL_RUN_OFFSET] <= timer_init;
+
+    // Flip off init bit if counter loaded
+    if (count != 16'd0) timer_init <= 1'b0;
+  end
 end
 
 // Status Register

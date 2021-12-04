@@ -42,8 +42,7 @@ Summary of Goals
 Introduction
 ============
 
-This document, and included files, make up a verilog implementation of the LUC16 microcontroller soft-core. The LUC16 is a custom, low resource cost, low instruction count, Instruction Set Architecture (ISA) that supports common high level (or at least C) language constructs. The instruction set centers around 16 bit signed data and uses 16 bit instructions. This ISA has been developed as a soft core on the terasIC DE2-115 Cyclone IVe
-development board. The architecture uses a single register and can perform all arithmetic instructions as an atomic read-modify-write cycle from/to memory in a single instruction cycle. Because of this, the LUC16 is most similar to the Microchip PIC12 family of processors.
+This document, and included files, make up a verilog implementation of the LUC16 microcontroller soft-core. The LUC16 is a custom, low resource cost, low instruction count, Instruction Set Architecture (ISA) that supports common high level (or at least C) language constructs. The instruction set centers around 16 bit signed data and uses 16 bit instructions. This ISA has been developed as a soft core on the terasIC DE2-115 Cyclone IVe development board. The architecture uses a single accumulator register and can perform all arithmetic instructions as an atomic read-modify-write cycle from/to memory and/or the register in a single instruction cycle. Because of this, the LUC16 is most similar to the Microchip PIC12 family of processors.
 
 
 .. raw:: pdf
@@ -54,10 +53,7 @@ development board. The architecture uses a single register and can perform all a
 Instructions
 ============
 
-This Instruction Set Architecture uses only 16 Instructions. Each
-instruction completes execution in 1 full cycle. It is worth noting that
-the program counter output for instruction N occurs during the last
-quarter of instruction N-1's cycle.
+This Instruction Set Architecture uses only 16 Instructions. Each instruction completes execution in 1 full cycle. However, a full cycle requires 4 clock periods to complete. It is worth noting that the program counter output for instruction N occurs during the last quarter of instruction N-1's cycle.
 
 .. image:: pics/Waves.png
    :width: 100%
@@ -330,14 +326,22 @@ power sleep mode by disabling any peripherals by piggy-backing off the
 Int_Mux control line, if needed. Since the ISA now has the ability to
 interrupt, it needs a way to return from the interrupt. This
 functionality is provided by the rfi instruction which restores the
-program counter from the PC Save register.
+program counter from the PC Save register. It is worth pointing out that the
+although a program can be halted indefinitely by using the goto literal
+instruction pointing at its own address, the important distinction
+between this and the wait for interrupt instruction is that the wfi instruction
+will return to the following instruction upon exit from the interrupt whereas
+using the gol instruction to halt will return to itself, effectively allowing
+ONLY the interrupt to be executed.
 
 If the 16 instruction restriction were lifted these are the operations
 that would be nice to have, in order of importance: increment/decrement
 memory (easier for loops), skip on less/greater than (easier signed
 comparison), branch to Wreg value, branch to literal value,
 add/subtract/and/or/xor Wreg with literal, load indirect memory access
-value and increment/decrement pointer by literal.
+value and increment/decrement pointer by literal. At this time, the simplicity
+of having only one instruction type outweighs the benefits of adding more
+instructions.
 
 Architecture
 ============
@@ -483,22 +487,12 @@ ALU outputs:
 3. Zero status register (1 bit)
 4. Operation result (signed 16 bit)
 
-The carry and zero bits are status registers. These status bits can be
-used by both the ALU and by users (they are mapped in data memory) to
-make decisions about the state of arithmatic. For example, if performing
-32bit addition in software, the carry bit will be monitored by the
-program to determine when the lower byte has overflowed, necessitating
-an increment of the high bytes. The carry bit is also used as an
-inverted borrow bit for subtraction, allowing the program to determine
-that an operation underflowed in order to compare magnitude of the two
-values (<, >). Likewise, a set Zero bit after subtraction indicates
-equality of the subtracted values. See the Register Section for more
-information.
+The carry and zero bits are status registers. These status bits can be used by both the ALU and by users (they are mapped in data memory as tightly integrated peripherals) to make decisions about the state of arithmatic. For example, if performing 32bit addition in software, the carry bit will be monitored by the program to determine when the lower byte has overflowed, necessitating an increment of the high bytes. The carry bit is also used as an inverted borrow bit for subtraction, allowing the program to determine that an operation underflowed in order to compare magnitude of the two values (<, >). Likewise, a set Zero bit after subtraction indicates equality of the subtracted values. See the Register Section for more information.
 
 ALU Instructions
 ~~~~~~~~~~~~~~~~
 
-Status bits pass through unless listed in the affects Status box
+Status bits pass through the ALU unaffected by the operation unless listed in the Affects Status box
 
 +-------+-----------+--------------------------------------+---------+---------+------+
 | Op    | Operation | Description                          | Used    | Affects | PC   |
@@ -551,19 +545,12 @@ Status bits pass through unless listed in the affects Status box
 Data Memory Unit
 ----------------
 
-The data memory unit interfaces with the on-chip SRAM memory. This
-implementation is equipped with 512 16 bit words, totaling 1KByte of
-memory. The memory is word addressable only. For example memory
-addresses 0x000 and 0x001 contain two different 16bit words, as opposed
-to two bytes comprising a 16 bit word.
+The data memory unit interfaces with the on-chip SRAM memory. This implementation is equipped with 512 16 bit words, totaling 1KByte of memory. The memory is word addressable only. For example memory addresses 0x000 and 0x001 contain two different 16bit words, as opposed to two bytes comprising a 16 bit word. There are no means of accessing or modifying only a single bit. All operations are performed on the entire 16-bit word
 
 Indirect Memory Access
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The data memory unit includes the Indirect Memory Access peripheral.
-This peripheral allows programmatic access to data memory, as opposed to
-compile-time only literals. In other words, array offsets can be
-computed at run-time, for example:
+The data memory unit includes the Indirect Memory Access peripheral which is implemented as a Tighly Integrated Peripherals. This peripheral allows programmatic access to data memory, as opposed to compile-time only literals. In other words, array offsets can be computed at run-time, for example:
 
 .. code:: asm
 
@@ -575,15 +562,34 @@ computed at run-time, for example:
    mlw .32              // load value of 32
    mwm indv             // store 32 at array_var[i]
 
+This feature also eases the implementation of stack data structures as used by most C runtimes to store function call information. The following example is a function call from the demonstration program
+
+.. code:: asm
+
+    mm STACKPTR,w // get top of stack
+    mwm MAIN_TEMP_0 // save original stack position
+    mwm INDA  // point the Indirect access at the stack
+    mlw MAIN_ADD_RETURN // return address
+    mwm INDV
+    mlw .1
+    sub INDA,M // next stack address
+    // load args right to left
+    mm i,w
+    mwm INDV
+    mlw .1
+    sub INDA,M // next stack address
+    mlw j // &j
+    mwm INDV
+    mm INDA,w  // get new STACKPTR address
+    mwm STACKPTR  // update STACKPTR
+    gol ADD
+
 Tightly Integrated Peripherals (TIPs)
 -------------------------------------
 
-Registers are memory mapped to 16 bit values and are word addressable
-(only) for user/program access through the data memory unit’s interface,
-starting from address 0x200. The first 5 words (addresses) are reserved
-for core registers and the Indirect Memory Access core peripheral
-registers. The remainder of the address space would hold peripheral
-control registers, if implemented.
+Registers are memory mapped to 16 bit values and are word addressable (only) for user/program access through the data memory unit’s interface, starting from address 0x200. The first 5 words (addresses) are reserved for core registers and the Indirect Memory Access and Interrupt Enable core peripherals registers. The remainder of the 0x200-0x2FF address space is reserved for future TIP registers, if implemented.
+
+**Note:** TIPs are part of the core architecture. While it is possible, user addition of additional peripherals here is discouraged. The implementation details of these peripherals are not intended to be stable and their interface with the rest of the data memory is not specified outsie of their implementation. User created FPGA peripherals are intended to interface with the PeriBus, which offers a more specified and stabilized interface.
 
 Wreg
 ~~~~
@@ -659,7 +665,7 @@ Inda
 IRQ
 ~~~
 
-- Global Interrupt Enable Peripheral.
+- Global Interrupt Control and Status Peripheral.
 - Memory mapped to 0x205.
 - Bit 0 is the Peripheral IRQ Flag.
   + This bit is set when a peripheral on the PeriBus has requested an interrupt.
@@ -674,12 +680,12 @@ Peripheral Interface Bus (PeriBus)
 
 Fig. 3. PeriBus Interface Architecture
 
-The PeriBus maps out-of-core peripherals into the address space. From the programmer's perspective, PeriBus peripherals are interacted with just like any other memory region. From the implementor's perspective, the peribus provides 16bit read and write busses with 8 bits of register adressing, by default. The Peribus Controller multiplexes the chipselect and read bus to/from each peripheral, in addition to aggregating each peripheral's IRQ line. Read and Write timing is handled by the data memory unit, which provides apropriately timed read_enable and write_enable signals to the PeriBus. The read_enable line is a place holder and is currently "hard wired" on, as in the active PeriBus peripheral is read from on each clock. This may become functional in a future revision. The peripherals are provided a clock signal from the base clock (4x instruction clock) and have access to the same reset line as all other components in the system.
+The PeriBus maps out-of-core peripherals into the address space, starting at 0x0300 and ending (by default) at 0x3FF. The PeriBus Controller's parameters can be adjusted to use the entire remaining address space if desired. From the programmer's perspective, PeriBus peripherals are interacted with just like any other memory region. From the implementor's perspective, the peribus provides 16bit read and write busses with 8 bits of register adressing, by default. The Peribus Controller multiplexes the chipselect and read bus to/from each peripheral, in addition to aggregating each peripheral's IRQ line. Read and Write timing is handled by the data memory unit, which provides apropriately timed read_enable and write_enable signals to the PeriBus. The read_enable line is a place holder and is currently "hard wired" on, as in the active PeriBus peripheral is read from on each clock. This may become functional in a future revision. The peripherals are provided a clock signal from the base clock (4x instruction clock) and have access to the same reset line as all other components in the system.
 
 PeriBus Parameters
 ~~~~~~~~~~~~~~~~~~
 
-The PeriBus offers 3 parameters than can be tuned to the implementor's liking. The defaults are reasonable, but can be adjusted for an exact fit in order to further reduce Logic Element usage.
+The PeriBus Controller module offers 3 parameters than can be tuned to the implementor's liking. The defaults are reasonable, but can be adjusted for an exact fit in order to further reduce Logic Element usage.
 
 -  MAX_PERIPHERALS: The maximum number of peripherals on the bus. Defaults to 8.
 -  PERI_ADDR_WIDTH: The size, in 16-bit words, of the address space used by the PeriBus. Defaults to 0x100 words.
@@ -725,6 +731,11 @@ The provided system includes two 16-bit timer peripherals, TIMER_0 and TIMER_1, 
 | 0x0003          | Status Register: {0b0000_0000_0000_00, IRQ_FLAG[1], 0}        |
 +-----------------+---------------------------------------------------------------+
 
+Implementing PeriBus Peripherals
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The GPIO and Timer peripherals are provided as reference implementations of peripherals. These combined with the architectural diagram of the bus should provide a solid basis for implementing custom peripherals. When Implementing a new peripheral any FPGA resources (e.g. I/O Pins) need to be added to the module ports of the top level module (ISA), the Data Memory module (ram), the Peribus_Controller module, and the module of the custom peripheral. It is expected that future development will move the Peripheral_Controller module into the Top level, which will simplify the chain of modules that must be passed through. Next, Instantiate the custom peripheral module within the Peribus_Controller module, and add its address space to the multiplex block to allow connection of the custom peripheral's chipselect and read_data lines. Finally, connect the clock, reset_n, address, write_enable, read_enable, write_data, and IRQ lines between the custom peripheral and the controller.
+
 Program Memory Unit
 -------------------
 
@@ -755,8 +766,8 @@ Calling Convention
 There is no enforced calling convention.
 
 For writing assembly, If the function is called from more than one place
-it is recommended to use the W register to pass the return address (PC +
-2) (callee saved if the W register is needed). However, it is just as
+it is recommended to use the W register to pass the return address (typ. PC + 1)
+(callee saved if the W register is needed). However, it is just as
 valid to implement a call stack and use W to pass the first parameter.
 If memory use allows, further parameters can be passed using fixed
 memory locations either shared amongst all functions or per-function. If

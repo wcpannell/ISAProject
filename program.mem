@@ -53,7 +53,7 @@
 //	__IRQ			equ 0x0A7
 //	__IRQ_PRE		equ 0x0BF
 //	__IRQ_SW		equ 0x0C1
-//	__IRQ_RESTORE		equ 0x0E3
+//	__IRQ_RESTORE		equ 0x0E5
 //
 // Literal Map:
 //	IRQ_EN_OFFSET		equ 1
@@ -835,7 +835,7 @@ A303
 
 //	    gol __IRQ_RESTORE
 //00C2
-C0E3
+C0E5
 
 //	//     *SW_irq = 0; // Clear all, doesn't matter how many changed, we'll update the
 //	//                  // whole port
@@ -980,32 +980,42 @@ C0E3
 //00E2
 130A
 
+//	//    // Invert output lights, just to show it caught the gpio0 irq.
+//	//    *LEDR ^= 0xffff;
+//		mlw -1
+//00E3
+27FF
+
+//		xwm LEDR,m
+//00E4
+7B04
+
 //	// }
 //
 //	__IRQ_RESTORE:
-//00E3
+//00E5
 
 //	// RESTORE STATE and Return from interrupt
 //	    mm IRQ_SAVE_INDA,w
-//00E3
+//00E5
 0007
 
 //	    mwm INDA  // Restore INDA
-//00E4
+//00E6
 1204
 
 //	    rrm IRQ_SAVE_ZC,m  // rotate carry back to its position
-//00E5
+//00E7
 4806
 
 //	    mm IRQ_SAVE_WREG,w  // restore WREG
-//00E6
+//00E8
 0005
 
 //	    mm IRQ_SAVE_ZC,m  // restore ZERO
-//00E7
+//00E9
 0806
 
 //	    rfi
-//00E8
+//00EA
 FFFF

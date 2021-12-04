@@ -12,7 +12,7 @@ module Peribus_Controller #(
   parameter PERI_ADDR_WIDTH='h100,  // width of address space
   parameter MAX_PERI_REGS=8  // maximum number of memory words per peripheral
 ) (
-  input var logic [7:0] addr,
+  input var logic [$clog2(PERI_ADDR_WIDTH) - 1:0] addr,
   input var logic [15:0] write_data,
   output var logic [15:0] read_data,
   input var logic clock,
@@ -29,8 +29,8 @@ module Peribus_Controller #(
 // Number of address lines on peripheral bus
 localparam MAX_PERI_REGS_BITS = $clog2(MAX_PERI_REGS);
 
-logic [MAX_PERIPHERALS:0] irq_lines = 0;
-logic [MAX_PERIPHERALS:0] chipselects;
+logic [MAX_PERIPHERALS - 1:0] irq_lines = 0;
+logic [MAX_PERIPHERALS - 1:0] chipselects = 0;
 //logic [MAX_PERI_REGS_BITS:0] peri_addr;  // per-peripheral addresses
 
 // trigger an IRQ if any of the lines are set

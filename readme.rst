@@ -1,7 +1,7 @@
 .. header::
-        ===================        ===================         ========        ==========================
-        W\. Clayton Pannell        CPE-531 ISA Project         12/01/20        pg. ###Page###/###Total###
-        ===================        ===================         ========        ==========================
+        ===================        =====         ========        ==========================
+        W\. Clayton Pannell        LUC16         12/01/20        pg. ###Page###/###Total###
+        ===================        =====         ========        ==========================
 
 
 
@@ -21,7 +21,7 @@ Summary of Goals
 
   - 4 for opcode 16 possible ops)
 
-* "Compile" C operations to assembly and machine code:
+* Support the following C operations in assembly / machine code:
 
   - add, subtract, and, or
 
@@ -31,15 +31,19 @@ Summary of Goals
 
   - 2's complement signed 16bit int (int a;), 1D array of signed int (int a[11];)
 
+* Implement Memory mapped peripheral bus
+
+  - Implement GPIO Peripheral
+
+  - Timer Peripheral
+
+* Implement Interrupts and Interrupt Controller
+
 Introduction
 ============
 
-This document, and included files, make up a verilog implementation of a
-low cost, low instruction count Instruction Set Architecture (ISA) that
-supports common high level (or at least C) language constructs. The
-instruction set centers around 16 bit signed data and uses 16 bit
-instructions. No attempt has been made to run this ISA outside of a
-simulator, much less on live hardware.
+This document, and included files, make up a verilog implementation of the LUC16 microcontroller soft-core. The LUC16 is a custom, low resource cost, low instruction count, Instruction Set Architecture (ISA) that supports common high level (or at least C) language constructs. The instruction set centers around 16 bit signed data and uses 16 bit instructions. This ISA has been developed as a soft core on the terasIC DE2-115 Cyclone IVe
+development board. The architecture uses a single register and can perform all arithmetic instructions as an atomic read-modify-write cycle from/to memory in a single instruction cycle. Because of this, the LUC16 is most similar to the Microchip PIC12 family of processors.
 
 
 .. raw:: pdf
@@ -571,8 +575,8 @@ computed at run-time, for example:
    mlw .32              // load value of 32
    mwm indv             // store 32 at array_var[i]
 
-Registers
----------
+Tightly Integrated Peripherals (TIPs)
+-------------------------------------
 
 Registers are memory mapped to 16 bit values and are word addressable
 (only) for user/program access through the data memory unit’s interface,
@@ -652,6 +656,75 @@ Inda
    +  Writes to upper 7 bits are ignored.
 -  The value stored in Inda is the memory address pointer for Indv
 
+IRQ
+~~~
+
+- Global Interrupt Enable Peripheral.
+- Memory mapped to 0x205.
+- Bit 0 is the Peripheral IRQ Flag.
+  + This bit is set when a peripheral on the PeriBus has requested an interrupt.
+- Bit 1 is the IRQ Enable.
+  + When this bit is set, all PeriBus IRQs trigger an interrupt.
+
+Peripheral Interface Bus (PeriBus)
+----------------------------------
+
+.. image:: pics/peribus.png
+   :width: 100%
+
+Fig. 3. PeriBus Interface Architecture
+
+The PeriBus maps out-of-core peripherals into the address space. From the programmer's perspective, PeriBus peripherals are interacted with just like any other memory region. From the implementor's perspective, the peribus provides 16bit read and write busses with 8 bits of register adressing, by default. The Peribus Controller multiplexes the chipselect and read bus to/from each peripheral, in addition to aggregating each peripheral's IRQ line. Read and Write timing is handled by the data memory unit, which provides apropriately timed read_enable and write_enable signals to the PeriBus. The read_enable line is a place holder and is currently "hard wired" on, as in the active PeriBus peripheral is read from on each clock. This may become functional in a future revision. The peripherals are provided a clock signal from the base clock (4x instruction clock) and have access to the same reset line as all other components in the system.
+
+PeriBus Parameters
+~~~~~~~~~~~~~~~~~~
+
+The PeriBus offers 3 parameters than can be tuned to the implementor's liking. The defaults are reasonable, but can be adjusted for an exact fit in order to further reduce Logic Element usage.
+
+-  MAX_PERIPHERALS: The maximum number of peripherals on the bus. Defaults to 8.
+-  PERI_ADDR_WIDTH: The size, in 16-bit words, of the address space used by the PeriBus. Defaults to 0x100 words.
+-  MAX_PERI_REGS: The maximum number of registers that can be used by any one peripheral. Defaults to 8.
+
+General Purpose IO
+~~~~~~~~~~~~~~~~~~
+
+The GPIO port peripheral provide control of 16 bidirectional pins per port. Pins can be assigned to be either an input or an output. Inputs and Output pins can be present within the same port, and their direction can be set at runtime. Pin direction is controlled by setting the respective bit in the Pin Direction register to 1 for output or 0 for a high-impedence input. The state of each pin can be set or determined (output or input, respectively), by writing or reading the Pin State register. The GPIO peripheral provides an interrupt on change (IOC) functionality on each pin which can be individually enabled or disabled by setting or clearing (respectively) its respective bit in the IOC Enable register. On a change in pin state, if IOC is enable for that pin, the peripheral will set the pin's respective bit in the IRQ Flag register high. If any of the IRQ Flags in the port are asserted, the IRQ line for the peripheral will also be asserted. If interrupts are enabled, these flags must be cleared during the Interrupt Service Routine (ISR) or the IRQ line will immediately re-enter the ISR upon issuance of the return from interrupt (rfi) instruction.
+
+The provided system includes two GPIO ports, GPIO_0 and GPIO_1 whose base addresses are 0x300 and 0x304, respectively. The interface is the same between both GPIO peripherals. On the DE2-115, GPIO_0 is connected to SW[15:0] and GPIO_1 is connected to LEDR[15:0].
+
++-----------------+-----------------------+
+| Register Offset | Description           |
++-----------------+-----------------------+
+| 0x0000          | Port State [15:0]     |
++-----------------+-----------------------+
+| 0x0001          | Port Direction [15:0] |
++-----------------+-----------------------+
+| 0x0002          | IOC Enable [15:0]     |
++-----------------+-----------------------+
+| 0x0003          | IOC Flags [15:0]      |
++-----------------+-----------------------+
+
+Interval Timer
+~~~~~~~~~~~~~~
+
+The provided system includes two 16-bit timer peripherals, TIMER_0 and TIMER_1, whose base addresses are 0x308 and 0x30C, respectively. The interface is the same between both timer peripherals. Like all other PeriBus peripherals on the DE2-115, this peripheral is driven by the 50MHz base clock. The timer peripherals are interval timers (counting down). A 1-256x prescale divider is provided and is controlled by manipulating the upper 8 bits in the control register. The prescale value is one higher than the control register prescale value (prescale = PRE + 1). The period is automatically loaded into the count when the run flag is set in the control register. Likewise, when the reload flag is set in the control register, the period is automatically reloaded into the count register when the count underflows. If the reload flag is not set the timer stops at counter underflow (although 0x0000 remains in the count register), and the Run flag is automatically cleared in the control register. Similarly, clearing the run flag stops the timer. Regardless of the state of the Automatic Reload or the IRQ Enable flags, when the counter underflows, the IRQ flag is set in the status register, until it is cleared by writing 0 into the status register. If the IRQ Enable flag is set, an IRQ is generated when the IRQ flag is set. This flag must be cleared within the interrupt service routine, or the interrupt will be immediately re-asserted upon calling the return from interrupt instruction.
+
+**NOTE:** The timer can be polled outside the interrupt context by reading the status register to see if the IRQ flag is set. If it has been set, the timer has rolled over at least once.
+
+
++-----------------+---------------------------------------------------------------+
+| Register Offset | Description                                                   |
++-----------------+---------------------------------------------------------------+
+| 0x0000          | Timer Count[15:0]                                             |
++-----------------+---------------------------------------------------------------+
+| 0x0001          | Timer Period [15:0]                                           |
++-----------------+---------------------------------------------------------------+
+| 0x0002          | Control Register:                                             |
+|                 | {Prescale [15:8], 0b00000, IRQ_ENABLE [2], RELOAD[1], RUN[0]} |
++-----------------+---------------------------------------------------------------+
+| 0x0003          | Status Register: {0b0000_0000_0000_00, IRQ_FLAG[1], 0}        |
++-----------------+---------------------------------------------------------------+
+
 Program Memory Unit
 -------------------
 
@@ -664,12 +737,17 @@ this document. The program memory is word addressable and contains 512
 counter which can be controlled in various ways through the instruction
 set.
 
-Programming
-===========
+Programming The LUC16
+=====================
 
-For an example program see the program.c, program.asm, and program.mem
-files included with this document. The text of program.c and program.asm
-have been included as an appendix to this document.
+An example program is included in the root directory of the project. These program files represent the same program implemented in C (program.c), assembly(program.asm), and machine code (program.mem and program.mif). As of yet there is no C compiler or assembler support for this architecture. The C file was hand-compiled to assembly and, likewise, the assembly file was hand-assembled to machine code. A more generic include file is included (luc16.inc) as a convenience to provide register and vector definitions. The include file can be added to your program by using the INCLUDE directive of the (future) assembler. The text of the program.c, program.asm, and luc16.inc files have also been included as an appendix to this document.
+
+Fixed Vectors
+-------------
+
+The ISA defines two fixed location vectors that must be respected by the linker (not currently implemented) or user-written fixed-location assembly files. Upon exiting from the reset state (SW[17] low on the DE2-115) the program counter is set to 0x0000. Upon entering the Interrupt state the program counter is set to 0x0004.
+
+**Note:** If the application is extremely constrained on program memory and will not use interrupts it is permissible to place the startup code at 0x0000 and write over the interrupt vector. There is nothing special about these memory locations other than the conditions in which the hardware will jump to them. This is still discouraged as it not idiomatic, would make an interrupt into a partial reset if it is accidentally enabled, and only reclaims 4 words of program memory.
 
 Calling Convention
 ------------------
@@ -703,26 +781,14 @@ covers common C language constructs in a simulator. The simulated
 hardware and program have been painstakingly checked for accuracy of
 input and output at each sub-step of each instruction.
 
-Special Thanks
-==============
-
-A special thanks to Dr. Gaede for lending me a stack of Verilog and
-Digital Design books and pointing me in the right direction. This
-project would not have been possible without this help.
 
 Appendix A: Tools used
 ======================
 
--  The verilog files were “compiled” using Icarus Verilog, a popular
-   free open source software project.
--  Waveforms were created from the simulation’s output VCD files using
-   GTKWave
--  GNU Make was used to script the build operations. This allowed
-   quickly switching between building the top-level verilog file and the
-   unit-test testbench verilog files. The file named “Makefile” contains
-   the build instructions used by Make.
--  The Architecture Block Diagram model was built using Lucid Charts, a
-   web-based flowcharting tool.
+-  The verilog files were originally “compiled” using Icarus Verilog, a popular free open source software project. Development and compilation of the DE2-115 implementation was done in Intel Quartus Lite 20.1. This should be able to be compiled and loaded from the no-monetary-cost version of Quartus.
+-  Waveforms were created from the simulation’s output VCD files using GTKWave. Modelsim was used for simulation and viewing waveforms for the DE2-115 implementation.
+-  GNU Make was used to script the build operations. This allowed quickly switching between building the top-level verilog file and the unit-test testbench verilog files. The file named “Makefile” contains the build instructions used by Make. DE2-115 implementation files used Quartus' built-in build tools. If the project fails to load creating a new project, including all (System)Verilog files, and setting ISA.sv to the top-level file should be all that is required to build.
+-  All Block Diagrams were built using Lucid Charts, a web-based flowcharting tool.
 
 Appendix B: Example Program
 ===========================
@@ -740,3 +806,6 @@ included below for completeness.
 .. code-block:: asm
    :include: program.asm
 
+
+.. code-block:: asm
+   :include: luc16.inc

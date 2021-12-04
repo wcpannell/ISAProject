@@ -1128,6 +1128,7 @@ set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_RO
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name PROJECT_IP_REGENERATION_POLICY ALWAYS_REGENERATE_IP
 set_global_assignment -name EDA_USER_COMPILED_SIMULATION_LIBRARY_DIRECTORY /home/asx/class/2021Fall/CPE523/project/verilog/simlib -section_id eda_simulation
+set_global_assignment -name SDC_FILE "../../../../../intelFPGA_lite/20.1/University_Program/Computer_Systems/DE2-115/DE2-115_Computer/verilog/DE2_115_Computer.sdc"
 set_global_assignment -name SYSTEMVERILOG_FILE interrupt.sv
 set_global_assignment -name SYSTEMVERILOG_FILE timer.sv
 set_global_assignment -name SYSTEMVERILOG_FILE test_peribus_controller.sv

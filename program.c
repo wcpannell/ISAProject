@@ -50,6 +50,9 @@ void __attribute__((interrupt)) __irq(void) {
     // Timer periph prescale gets lower 8 bits
     *TIMER_0_control =
         (*TIMER_0_control & (~TMR0_CTL_PRE_MASK)) | ((*SW & 0xff) << 8);
+
+    // Invert output lights, just to show it caught the gpio0 irq.
+    *LEDR ^= 0xffff;
   }
 }
 

@@ -484,6 +484,11 @@ __IRQ_SW:
     owm IRQ_TEMP0,w
     mwm TIMER_0_control
 
+//    // Invert output lights, just to show it caught the gpio0 irq.
+//    *LEDR ^= 0xffff;
+	mlw -1
+	xwm LEDR,m
+
 // }
 
 __IRQ_RESTORE:

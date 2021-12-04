@@ -30,35 +30,10 @@ logic [10:0] pc_mux_out, skipmux_out, add_out, pc_save_out, pc_in, pc_out;
 logic [15:0] wreg_out, sign_ext_out, alu_out, mem_out, wreg_in;
 logic instr_clock, mem_clock, carry_mem_in, carry_mem_out, zero_mem_in, zero_mem_out;
 
-logic slower_clock;
-logic [1:0] slower_counter;
-
-// Divide clock by 4
-always_ff @(posedge CLOCK_50 or negedge reset_bar) begin
-  if (~reset_bar) begin
-    slower_clock <= 1'b0;
-    slower_counter <= 2'd0;
-  end
-  else if (slower_counter == 2'b00) begin
-    slower_clock <= 1'b1;
-    slower_counter <= slower_counter + 2'd1;
-  end
-  else begin
-    slower_clock <= 1'b0;
-    slower_counter <= slower_counter + 2'd1;
-  end
-end
-
-Multi_Clock multi_clock(slower_clock, instr_clock, mem_clock, reset_bar);
+Multi_Clock multi_clock(CLOCK_50, instr_clock, mem_clock, reset_bar);
 Program_Counter program_counter(pc_in, pc_out, instr_clock, reset_bar);
 
-// Inferred memory works, but IP does not.
 Program_Memory program_memory(pc_out, instruction, instr_clock);
-//iprom iprom_inst (
-//  .address ( pc_out[8:0] ),
-//  .clock ( instr_clock ),
-//  .q ( instruction )
-//);
 
 Instruction_Decoder instruction_decoder(
   .opcode(opcode),
@@ -114,7 +89,7 @@ ram data_memory(
   .interrupt(irq),  // For now, sole driver of interrupts (from peribus)
   .bidir0(SW[15:0]),
   .bidir1(LEDR[15:0]),
-  .peribus_clock(slower_clock)
+  .peribus_clock(CLOCK_50)
 );
 alu alu1(mem_out, wreg_out, carry_mem_out, zero_mem_out, control_alu_op, alu_out, carry_mem_in, zero_mem_in, control_skipmux);
 Mux4_16bit w_mux(alu_out, mem_out, sign_ext_out, wreg_out, control_w_mux, wreg_in);

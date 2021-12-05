@@ -13,9 +13,9 @@ Summary of Goals
 ================
 
 
-* Minimal cpi low cost RISC ISA
+* Minimal CPI low cost RISC ISA
 
-  - signed 16 bit words. max 16 instructions.
+  - signed 16 bit words. max. 16 instructions.
 
 * linear address 2^10 memory bytes, word addressable (2^9 words)
 
@@ -42,7 +42,7 @@ Summary of Goals
 Introduction
 ============
 
-This document, and included files, make up a verilog implementation of the LUC16 microcontroller soft-core. The LUC16 is a custom, low resource cost, low instruction count, Instruction Set Architecture (ISA) that supports common high level (or at least C) language constructs. The instruction set centers around 16 bit signed data and uses 16 bit instructions. This ISA has been developed as a soft core on the terasIC DE2-115 Cyclone IVe development board. The architecture uses a single accumulator register and can perform all arithmetic instructions as an atomic read-modify-write cycle from/to memory and/or the register in a single instruction cycle. Because of this, the LUC16 is most similar to the Microchip PIC12 family of processors.
+This document and included files make up a verilog implementation of the LUC16 microcontroller soft-core. The LUC16 is a custom, low resource cost, low instruction count, Instruction Set Architecture (ISA) that supports common high level (or at least C) language constructs. The instruction set centers around 16 bit signed data and uses 16 bit instructions. This ISA has been developed as a soft core on the terasIC DE2-115 Cyclone IVe development board. The architecture uses a single accumulator register and can perform all arithmetic instructions as an atomic read-modify-write cycle from/to memory and/or the register in a single instruction cycle. Because of this, the LUC16 is most similar to the Microchip PIC12 family of processors.
 
 
 .. raw:: pdf
@@ -232,7 +232,7 @@ sign extended number. The ? symbol denotes that the value is ignored.
 The assembler will default to making these values 0. Note that the
 meanings of different literal values are determined in the instruction
 decode module. The use of the symbols here is only to better convey
-understanding. see the instruction decode section for more details. For
+understanding. See the instruction decode section for more details. For
 "real-world" examples see the program.mem file included with this
 document. This file contains C code that was hand compiled and hand
 assembled to machine code.
@@ -293,8 +293,8 @@ having a way to instantiate a literal value is too grim to consider.
 The next easiest instructions to add were the arithmetic instructions:
 add, sub, awm, owm. These basic instructions were explicitly required to
 be present. The rotate/shift instructions, rlm and rrm, are needed in
-order to implement power-of-two mutliplication and divison, which,
-although not explicitly required, are nearly as ubuiquitous as the basic
+order to implement power-of-two multiplication and division, which,
+although not explicitly required, are nearly as ubiquitous as the basic
 arithmetic instructions. The xwm (XOR) was also not explicitly needed,
 but is frequently needed in communications applications, negation, and
 it rounded out the bitwise boolean operations nicely. A strong contender
@@ -309,14 +309,14 @@ chosen because it was much easier to use for function call purposes, and
 doing lookup tables would only slightly more painful than with a branch
 instruction. Once cost is brought into the equation, gow becomes a much
 clearer winner since it fills the 4th slot in the 4 way Program Counter
-Mux. Implementing a branch instruction would require adding another mux
+Multiplexer. Implementing a branch instruction would require adding another mux
 between the skip mux and the Adder module.
 
 The sms and smc "skip" instructions pair with the carry and zero ALU
 status registers to build rudimentary comparison operations (less than,
 greater than, equal, etc.). These operations are the building block of
 comparison-based control flow operations (if, else, while, for, etc.).
-Their inclusion is required, although their operation for this pupose is
+Their inclusion is required, although their operation for this purpose is
 admittedly painful, especially when dealing with mixed sign operands
 (see the register section for more detail).
 
@@ -363,7 +363,7 @@ below for more detail). An 11 bit PC_Save register stores the program
 counter value during interrupts to allow the program to return to normal
 operation after exiting in the interrupt routine (rfi instruction).
 Since a criteria for this project was minimal cost (defined by the
-number of registers and busses used), the small registers can be summed
+number of registers and buses used), the small registers can be summed
 up as being just shy of a full 16 bit register (13 out of 16 bits used),
 for a total of 2 16 bit registers.
 
@@ -373,12 +373,12 @@ extension block and Wreg input mux), and Program Counter (address, via
 PC_Mux). This bus technically starts as the 16 bit instruction, but the
 upper 5 bits immediately branch off into the Instruction Decoder. A
 smaller 16 bit bus is used to pass the ALU result to the data memory and
-the W register. Two very small 16 bit busses interconnect the ALU and
+the W register. Two very small 16 bit buses interconnect the ALU and
 Wreg, with one 11 bit leg branching off the Wreg bus to drive the
 Program Counter (via PC_Mux). For cost accounting it would be reasonable
-to sum these as somewhere between 3 and 4 busses, given that the 11 bit
-busses have to travel the furthest and interconnect several modules,
-whereas the 16 bit busses only connect amongst the data memory, w
+to sum these as somewhere between 3 and 4 buses, given that the 11 bit
+buses have to travel the furthest and interconnect several modules,
+whereas the 16 bit buses only connect amongst the data memory, w
 register (sometimes through a mux), and ALU. It is worth noting that
 adding peripherals would need to connect to the data memory module via
 at least 1 additional 16 bit bus.
@@ -487,7 +487,7 @@ ALU outputs:
 3. Zero status register (1 bit)
 4. Operation result (signed 16 bit)
 
-The carry and zero bits are status registers. These status bits can be used by both the ALU and by users (they are mapped in data memory as tightly integrated peripherals) to make decisions about the state of arithmatic. For example, if performing 32bit addition in software, the carry bit will be monitored by the program to determine when the lower byte has overflowed, necessitating an increment of the high bytes. The carry bit is also used as an inverted borrow bit for subtraction, allowing the program to determine that an operation underflowed in order to compare magnitude of the two values (<, >). Likewise, a set Zero bit after subtraction indicates equality of the subtracted values. See the Register Section for more information.
+The carry and zero bits are status registers. These status bits can be used by both the ALU and by users (they are mapped in data memory as tightly integrated peripherals) to make decisions about the state of arithmetic. For example, if performing 32bit addition in software, the carry bit will be monitored by the program to determine when the lower byte has overflowed, necessitating an increment of the high bytes. The carry bit is also used as an inverted borrow bit for subtraction, allowing the program to determine that an operation underflowed in order to compare magnitude of the two values (<, >). Likewise, a set Zero bit after subtraction indicates equality of the subtracted values. See the Register Section for more information.
 
 ALU Instructions
 ~~~~~~~~~~~~~~~~
@@ -545,12 +545,12 @@ Status bits pass through the ALU unaffected by the operation unless listed in th
 Data Memory Unit
 ----------------
 
-The data memory unit interfaces with the on-chip SRAM memory. This implementation is equipped with 512 16 bit words, totaling 1KByte of memory. The memory is word addressable only. For example memory addresses 0x000 and 0x001 contain two different 16bit words, as opposed to two bytes comprising a 16 bit word. There are no means of accessing or modifying only a single bit. All operations are performed on the entire 16-bit word
+The data memory unit interfaces with the on-chip memory blocks. This implementation is equipped with 512 16 bit words, totaling 1KByte of memory. The memory is word addressable only. For example memory addresses 0x000 and 0x001 contain two different 16bit words, as opposed to two bytes comprising a 16 bit word. There are no means of accessing or modifying only a single bit. All operations are performed on the entire 16-bit word
 
 Indirect Memory Access
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The data memory unit includes the Indirect Memory Access peripheral which is implemented as a Tighly Integrated Peripherals. This peripheral allows programmatic access to data memory, as opposed to compile-time only literals. In other words, array offsets can be computed at run-time, for example:
+The data memory unit includes the Indirect Memory Access peripheral which is implemented as a Tightly Integrated Peripherals. This peripheral allows programmatic access to data memory, as opposed to compile-time only literals. In other words, array offsets can be computed at run-time, for example:
 
 .. code:: asm
 
@@ -589,7 +589,7 @@ Tightly Integrated Peripherals (TIPs)
 
 Registers are memory mapped to 16 bit values and are word addressable (only) for user/program access through the data memory unit’s interface, starting from address 0x200. The first 5 words (addresses) are reserved for core registers and the Indirect Memory Access and Interrupt Enable core peripherals registers. The remainder of the 0x200-0x2FF address space is reserved for future TIP registers, if implemented.
 
-**Note:** TIPs are part of the core architecture. While it is possible, user addition of additional peripherals here is discouraged. The implementation details of these peripherals are not intended to be stable and their interface with the rest of the data memory is not specified outsie of their implementation. User created FPGA peripherals are intended to interface with the PeriBus, which offers a more specified and stabilized interface.
+**Note:** TIPs are part of the core architecture. While it is possible, user addition of additional peripherals here is discouraged. The implementation details of these peripherals are not intended to be stable and their interface with the rest of the data memory is not specified outside of their implementation. User created FPGA peripherals are intended to interface with the PeriBus, which offers a more specified and stabilized interface.
 
 Wreg
 ~~~~
@@ -680,12 +680,12 @@ Peripheral Interface Bus (PeriBus)
 
 Fig. 3. PeriBus Interface Architecture
 
-The PeriBus maps out-of-core peripherals into the address space, starting at 0x0300 and ending (by default) at 0x3FF. The PeriBus Controller's parameters can be adjusted to use the entire remaining address space if desired. From the programmer's perspective, PeriBus peripherals are interacted with just like any other memory region. From the implementor's perspective, the peribus provides 16bit read and write busses with 8 bits of register adressing, by default. The Peribus Controller multiplexes the chipselect and read bus to/from each peripheral, in addition to aggregating each peripheral's IRQ line. Read and Write timing is handled by the data memory unit, which provides apropriately timed read_enable and write_enable signals to the PeriBus. The read_enable line is a place holder and is currently "hard wired" on, as in the active PeriBus peripheral is read from on each clock. This may become functional in a future revision. The peripherals are provided a clock signal from the base clock (4x instruction clock) and have access to the same reset line as all other components in the system.
+The PeriBus maps out-of-core peripherals into the address space, starting at 0x0300 and ending (by default) at 0x3FF. The PeriBus Controller's parameters can be adjusted to use the entire remaining address space if desired. From the programmer's perspective, PeriBus peripherals are interacted with just like any other memory region. From the implementer's perspective, the peribus provides 16bit read and write buses with 8 bits of register addressing, by default. The Peribus Controller multiplexes the chipselect and read bus to/from each peripheral, in addition to aggregating each peripheral's IRQ line. Read and Write timing is handled by the data memory unit, which provides appropriately timed read_enable and write_enable signals to the PeriBus. The read_enable line is a place holder and is currently "hard wired" on, as in the active PeriBus peripheral is read from on each clock. This may become functional in a future revision. The peripherals are provided a clock signal from the base clock (4x instruction clock) and have access to the same reset line as all other components in the system.
 
 PeriBus Parameters
 ~~~~~~~~~~~~~~~~~~
 
-The PeriBus Controller module offers 3 parameters than can be tuned to the implementor's liking. The defaults are reasonable, but can be adjusted for an exact fit in order to further reduce Logic Element usage.
+The PeriBus Controller module offers 3 parameters than can be tuned to the implementer's liking. The defaults are reasonable, but can be adjusted for an exact fit in order to further reduce Logic Element usage.
 
 -  MAX_PERIPHERALS: The maximum number of peripherals on the bus. Defaults to 8.
 -  PERI_ADDR_WIDTH: The size, in 16-bit words, of the address space used by the PeriBus. Defaults to 0x100 words.
@@ -694,7 +694,7 @@ The PeriBus Controller module offers 3 parameters than can be tuned to the imple
 General Purpose IO
 ~~~~~~~~~~~~~~~~~~
 
-The GPIO port peripheral provide control of 16 bidirectional pins per port. Pins can be assigned to be either an input or an output. Inputs and Output pins can be present within the same port, and their direction can be set at runtime. Pin direction is controlled by setting the respective bit in the Pin Direction register to 1 for output or 0 for a high-impedence input. The state of each pin can be set or determined (output or input, respectively), by writing or reading the Pin State register. The GPIO peripheral provides an interrupt on change (IOC) functionality on each pin which can be individually enabled or disabled by setting or clearing (respectively) its respective bit in the IOC Enable register. On a change in pin state, if IOC is enable for that pin, the peripheral will set the pin's respective bit in the IRQ Flag register high. If any of the IRQ Flags in the port are asserted, the IRQ line for the peripheral will also be asserted. If interrupts are enabled, these flags must be cleared during the Interrupt Service Routine (ISR) or the IRQ line will immediately re-enter the ISR upon issuance of the return from interrupt (rfi) instruction.
+The GPIO port peripheral provide control of 16 bidirectional pins per port. Pins can be assigned to be either an input or an output. Inputs and Output pins can be present within the same port, and their direction can be set at runtime. Pin direction is controlled by setting the respective bit in the Pin Direction register to 1 for output or 0 for a high-impedance input. The state of each pin can be set or determined (output or input, respectively), by writing or reading the Pin State register. The GPIO peripheral provides an interrupt on change (IOC) functionality on each pin which can be individually enabled or disabled by setting or clearing (respectively) its respective bit in the IOC Enable register. On a change in pin state, if IOC is enable for that pin, the peripheral will set the pin's respective bit in the IRQ Flag register high. If any of the IRQ Flags in the port are asserted, the IRQ line for the peripheral will also be asserted. If interrupts are enabled, these flags must be cleared during the Interrupt Service Routine (ISR) or the IRQ line will immediately re-enter the ISR upon issuance of the return from interrupt (rfi) instruction.
 
 The provided system includes two GPIO ports, GPIO_0 and GPIO_1 whose base addresses are 0x300 and 0x304, respectively. The interface is the same between both GPIO peripherals. On the DE2-115, GPIO_0 is connected to SW[15:0] and GPIO_1 is connected to LEDR[15:0].
 
@@ -739,14 +739,12 @@ The GPIO and Timer peripherals are provided as reference implementations of peri
 Program Memory Unit
 -------------------
 
-The program memory is user accessible only during programming. The ISA
-contains no method to modify program memory values, although a
-peripheral could be implemented for that purpose. The verilog simulation
-loads the program memory from the the program.mem file included with
-this document. The program memory is word addressable and contains 512
-16-bit words (1KByte). The program memory is addressed by the program
-counter which can be controlled in various ways through the instruction
-set.
+The program memory is user accessible only during programming. The ISA contains no method to modify program memory values, although a peripheral could be implemented for that purpose. The verilog simulation loads the program memory from the program.mem file included with this document. The synthesizer loads the program memory from the program.mif file. A python script (mem2mif.py) is included with the source to allow for easy translation from the assembled mem file to the mif file format. It should be noted that while both ModelSim and Quartus can use the Intel Hex file format, the variation of the format used does not match that of common hex file tooling. The program memory is word addressable and contains 512 16-bit words (1KByte). The program memory is addressed by the program counter which can be controlled in various ways through the instruction set.
+
+Interrupt Controller
+--------------------
+
+The interrupt controller is largely invisible to the end user. This unit is responsible for changing the program counter (PC) to the interrupt vector when requested by the interrupt line and returning from the interrupt when the rfi instruction is issued. When an interrupt is requested the program counter is coerced to the interrupt vector (0x0004) and the value that would normally be put in the program counter is latched into the PC_SAVE register which retains that value until reset or the next interrupt is called. While inside the interrupt service routine the Interrupt Controller monitors the controls for the PC_MUX (which selects the source of the next PC value) and will not allow the interrupt vector to be reasserted until the PC_SAVE PC is commanded, exiting the interrupt service routine.
 
 Programming The LUC16
 =====================
@@ -783,22 +781,65 @@ of arguments will depend upon the compiler, but the calling convention
 used in the samples provided is push the return address followed by the
 arguments from right to left, and then the return value.
 
+From Simulation to Synthesis
+============================
+
+This architecture was originally designed as a project for the graduate level version of Introduction to Computer Architectures. The first verilog representation of the design was created while self-learning verilog itself from various sources. While creating this design I had no access to FPGA hardware nor any concept of the differences between what can be represented in verilog versus synthesizeable verilog. Predictably, significant rework and redesign was required to make the design synthesizeable, and furthermore to make it work as intended. The brief summary of changes and pain points that follows is not intended solely to air grievances, but more as a documentation of my experience that would hopefully be useful for someone in the same situation.
+
+Running into warnings and errors about multiple drivers on a net was a frequent issue while adapting the verilog source for synthesis. The easiest, and fortunately most frequent, case was where the net was being driven from an initial block and an always block. This can be resolved by either commenting out the initial block, or using a synthesis directive to mark the initial block as non-synthesizeable.
+
+.. code:: verilog
+
+   /* synthesis  translate_off */
+   initial begin
+     foo = 1'b0;
+     bar = 1'b1;
+   end
+   /* synthesis translate_on */
+
+There were instances, however, where this issue was more fundamental. The simulator used to develop the original design would happily allow any number of drivers on a net, as long as they were in the same module and did not assert at the same time. Fixing this required a redesigning many of the "always" blocks. For the affected modules, this redesign effort afforded a convenient opportunity to break apart the larger blocks into simpler chunks and update those files to use SystemVerilog.
+
 Conclusion
 ==========
 
 This document and included files form a working low cost Instruction Set
 Architecture. The design successfully “runs” the included program that
-covers common C language constructs in a simulator. The simulated
+exercises all instructions, common C language constructs, Interrupts, and
+the GPIO and Timer peripherals in the ModelSim Simulator. The simulated
 hardware and program have been painstakingly checked for accuracy of
 input and output at each sub-step of each instruction.
 
+However, it could be argued that the adaptation to synthesizable design is not entirely complete. Despite the system working as intended in ModelSim simulations, the timer peripheral and interrupts do not work on hardware. Using the included demo program, the system is working up until the point where the GPIO test routine (MAIN_SW_LOOP) moves to the Timer test routine (MAIN_TMR_LOOP). Somewhere between the two the soft core appears to lock up. The output LEDs and input switches do nothing. Only setting the system into reset (by clearing SW[17]) has any effect. The same is true when entering interrupts. A version of the test program was made that jumped over the Timer test and went straight into the setup for the interrupt test, which when ran had the same behavior as the Timer test. Diagnosing these issues is difficult as the core does not have any features implemented that give insight to its internal state when run on hardware, such as JTAG. Implementing diagnostic features is practically required for further progress since at this point the Simulation functions as intended and there are no errors or relevant warnings, as far I can determine, during synthesis and fitting in Quartus Lite. As it stands, the microcontroller core, less interrupts, and the GPIO PeriBus peripheral are functional on hardware.
+
+Resource usage on Cyclone IV
+----------------------------
+
+The table below shows the resources consumed by the LUC16 compared to a similarly equipped\* NIOS2/E core. This data is taken from the Quartus Compilation Report.
+
++----------------------+-------+---------+
+| Metric               | LUC16 | NIOS2/e |
++----------------------+-------+---------+
+| Total Logic Elements | 1,104 | 1,765   |
++----------------------+-------+---------+
+| Total registers      | 449   | 1123    |
++----------------------+-------+---------+
+| Total Pins           | 37    | 33      |
++----------------------+-------+---------+
+| Total Memory Bits    | 16384 | 14,336  |
++----------------------+-------+---------+
+| Embedded Multipliers | 0     | 0       |
++----------------------+-------+---------+
+| Total PLLs           | 0     | 0       |
++----------------------+-------+---------+
+
+\* Since the NIOS2/e is a 32bit core, the memories were reduced to 256 bit, and only 1 32bit timer and GPIO peripherals were used. The difference in memory usage correlates to 64 32-bit words, which are likely to be the Reset and Exception vector tables.
 
 Appendix A: Tools used
 ======================
 
 -  The verilog files were originally “compiled” using Icarus Verilog, a popular free open source software project. Development and compilation of the DE2-115 implementation was done in Intel Quartus Lite 20.1. This should be able to be compiled and loaded from the no-monetary-cost version of Quartus.
--  Waveforms were created from the simulation’s output VCD files using GTKWave. Modelsim was used for simulation and viewing waveforms for the DE2-115 implementation.
--  GNU Make was used to script the build operations. This allowed quickly switching between building the top-level verilog file and the unit-test testbench verilog files. The file named “Makefile” contains the build instructions used by Make. DE2-115 implementation files used Quartus' built-in build tools. If the project fails to load creating a new project, including all (System)Verilog files, and setting ISA.sv to the top-level file should be all that is required to build.
+-  Waveforms were created from the ModelSim's simulation output.
+-  GNU Make was used to script the build operations for the initial design. The DE2-115 implementation files used Quartus' built-in build tools. If the project fails to load, creating a new project, including all (System)Verilog files, and setting ISA.sv to the top-level file should be all that is required to build.
 -  All Block Diagrams were built using Lucid Charts, a web-based flowcharting tool.
 
 Appendix B: Example Program
